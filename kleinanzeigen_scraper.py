@@ -1,0 +1,300 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# Setze die Standardkodierung auf UTF-8
+import sys
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
+
+"""
+Kleinanzeigen Scraper
+
+Dieses Skript extrahiert alle Informationen von einer Kleinanzeigen-Anzeige,
+inklusive Bilder, und speichert diese strukturiert ab.
+"""
+
+import os
+import re
+import json
+import argparse
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+from datetime import datetime
+from PIL import Image
+from io import BytesIO
+
+class KleinanzeigenScraper:
+    """Scraper für Kleinanzeigen.de"""
+
+    def __init__(self, output_dir="output"):
+        """
+        Initialisiert den Scraper.
+
+        Args:
+            output_dir (str): Verzeichnis für die Ausgabe der Daten
+        """
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept-Language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',
+        }
+        self.output_dir = output_dir
+        self.images_dir = os.path.join(output_dir, "images")
+
+        # Erstelle Ausgabeverzeichnisse, falls sie nicht existieren
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.images_dir, exist_ok=True)
+
+    def scrape(self, url):
+        """
+        Scrapt eine Kleinanzeigen-Anzeige.
+
+        Args:
+            url (str): URL der Kleinanzeigen-Anzeige
+
+        Returns:
+            dict: Extrahierte Daten der Anzeige
+        """
+        print(f"Scrape Anzeige: {url}")
+
+        # Anzeigen-ID aus URL extrahieren
+        ad_id = self._extract_ad_id(url)
+        if not ad_id:
+            raise ValueError(f"Konnte keine Anzeigen-ID aus der URL extrahieren: {url}")
+
+        # Seite abrufen
+        response = requests.get(url, headers=self.headers)
+        if response.status_code != 200:
+            raise Exception(f"Fehler beim Abrufen der Seite: HTTP {response.status_code}")
+
+        # Erzwinge UTF-8-Kodierung
+        response.encoding = 'utf-8'
+
+        # HTML parsen
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Daten extrahieren
+        data = {
+            "id": ad_id,
+            "url": url,
+            "scraped_at": datetime.now().isoformat(),
+            "title": self._extract_title(soup),
+            "price": self._extract_price(soup),
+            "description": self._extract_description(soup),
+            "details": self._extract_details(soup),
+            "location": self._extract_location(soup),
+            "seller": self._extract_seller_info(soup),
+            "images": self._extract_and_save_images(soup, ad_id)
+        }
+
+        # Daten speichern
+        self._save_data(data, ad_id)
+
+        return data
+
+    def _extract_ad_id(self, url):
+        """Extrahiert die Anzeigen-ID aus der URL"""
+        match = re.search(r'/(\d+)-', url)
+        return match.group(1) if match else None
+
+    def _extract_title(self, soup):
+        """Extrahiert den Titel der Anzeige"""
+        title_elem = soup.select_one('h1.boxedarticle--title')
+        return title_elem.text.strip() if title_elem else None
+
+    def _extract_price(self, soup):
+        """Extrahiert den Preis der Anzeige"""
+        price_elem = soup.select_one('h2.boxedarticle--price')
+        if not price_elem:
+            return None
+
+        price_text = price_elem.text.strip()
+        # Preis bereinigen (z.B. "80 € VB" -> "80")
+        price_match = re.search(r'(\d+(?:\.\d+)?)', price_text.replace(',', '.'))
+        return price_match.group(1) if price_match else price_text
+
+    def _extract_description(self, soup):
+        """Extrahiert die Beschreibung der Anzeige"""
+        desc_elem = soup.select_one('p#viewad-description-text')
+        return desc_elem.text.strip() if desc_elem else None
+
+    def _extract_details(self, soup):
+        """Extrahiert die Details der Anzeige"""
+        details = {}
+
+        # Suche nach der addetailslist
+        addetailslist = soup.select_one('div.addetailslist')
+        if not addetailslist:
+            return details
+
+        # Extrahiere alle Detail-Elemente
+        detail_items = addetailslist.select('li.addetailslist--detail')
+
+        for item in detail_items:
+            # Extrahiere den Label-Text (alles vor dem ersten span)
+            label_text = None
+            value_text = None
+
+            # Direkter Zugriff auf den Text vor dem span
+            for content in item.contents:
+                if content.name != 'span':
+                    if content.string and content.string.strip():
+                        label_text = content.string.strip()
+                        if label_text.endswith(':'):
+                            label_text = label_text[:-1].strip()
+                        break
+
+            # Extrahiere den Wert aus dem span
+            value_elem = item.select_one('.addetailslist--detail--value')
+            if value_elem:
+                value_text = value_elem.text.strip()
+
+            if label_text and value_text:
+                details[label_text] = value_text
+
+        return details
+
+    def _extract_location(self, soup):
+        """Extrahiert den Standort der Anzeige"""
+        location = {}
+
+        location_elem = soup.select_one('span#viewad-locality')
+        if location_elem:
+            location['address'] = location_elem.text.strip()
+
+        # Versuche, PLZ und Ort zu extrahieren
+        if 'address' in location:
+            match = re.search(r'(\d{5})\s+(.+)', location['address'])
+            if match:
+                location['zip_code'] = match.group(1)
+                location['city'] = match.group(2)
+
+        return location
+
+    def _extract_seller_info(self, soup):
+        """Extrahiert Informationen zum Verkäufer"""
+        seller = {}
+
+        # Verkäufername
+        seller_name_elem = soup.select_one('.userprofile-vip')
+        if seller_name_elem:
+            seller['name'] = seller_name_elem.text.strip()
+
+        # Verkäufertyp (privat/gewerblich)
+        seller_type_elem = soup.select_one('.userprofile-vip-details-text')
+        if seller_type_elem:
+            seller['type'] = seller_type_elem.text.strip()
+
+        # Mitglied seit
+        member_since_elems = soup.select('.userprofile-vip-details-text')
+        for elem in member_since_elems:
+            if 'Aktiv seit' in elem.text:
+                seller['member_since'] = elem.text.replace('Aktiv seit', '').strip()
+                break
+
+        return seller
+
+    def _extract_and_save_images(self, soup, ad_id):
+        """Extrahiert und speichert Bilder der Anzeige"""
+        images_info = []
+
+        # Bildergalerie finden
+        gallery_items = soup.select('div.galleryimage-element img')
+
+        for i, img in enumerate(gallery_items):
+            # Bild-URL extrahieren (normalerweise im data-imgsrc Attribut für hochauflösende Bilder)
+            img_url = img.get('data-imgsrc') or img.get('src')
+            if not img_url:
+                continue
+
+            # Relative URLs in absolute URLs umwandeln
+            if not img_url.startswith(('http://', 'https://')):
+                img_url = urljoin('https://www.kleinanzeigen.de', img_url)
+
+            try:
+                # Bild herunterladen
+                img_response = requests.get(img_url, headers=self.headers)
+                if img_response.status_code != 200:
+                    print(f"Fehler beim Herunterladen des Bildes {img_url}: HTTP {img_response.status_code}")
+                    continue
+
+                # Dateiname generieren
+                file_ext = self._get_image_extension(img_response.headers.get('Content-Type', ''))
+                filename = f"{ad_id}_{i+1}{file_ext}"
+                filepath = os.path.join(self.images_dir, filename)
+
+                # Bild speichern
+                with open(filepath, 'wb') as f:
+                    f.write(img_response.content)
+
+                # Bildgröße ermitteln
+                img_data = BytesIO(img_response.content)
+                with Image.open(img_data) as img_obj:
+                    width, height = img_obj.size
+
+                # Bildinformationen speichern
+                images_info.append({
+                    'filename': filename,
+                    'original_url': img_url,
+                    'width': width,
+                    'height': height,
+                    'size_bytes': len(img_response.content)
+                })
+
+                print(f"Bild gespeichert: {filename}")
+
+            except Exception as e:
+                print(f"Fehler beim Verarbeiten des Bildes {img_url}: {str(e)}")
+
+        return images_info
+
+    def _get_image_extension(self, content_type):
+        """Ermittelt die Dateierweiterung basierend auf dem Content-Type"""
+        if 'jpeg' in content_type or 'jpg' in content_type:
+            return '.jpg'
+        elif 'png' in content_type:
+            return '.png'
+        elif 'gif' in content_type:
+            return '.gif'
+        elif 'webp' in content_type:
+            return '.webp'
+        else:
+            return '.jpg'  # Standardwert
+
+    def _save_data(self, data, ad_id):
+        """Speichert die extrahierten Daten als JSON"""
+        filename = f"{ad_id}.json"
+        filepath = os.path.join(self.output_dir, filename)
+
+        # Korrigiere Zeichenkodierung in Details
+        if 'details' in data:
+            corrected_details = {}
+            for key, value in data['details'].items():
+                # Entferne Zeilenumbrüche und überflüssige Leerzeichen im Schlüssel
+                clean_key = key.replace('\n', '').strip()
+                corrected_details[clean_key] = value
+            data['details'] = corrected_details
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f"Daten gespeichert: {filepath}")
+
+
+def main():
+    """Hauptfunktion"""
+    parser = argparse.ArgumentParser(description='Kleinanzeigen Scraper')
+    parser.add_argument('url', help='URL der Kleinanzeigen-Anzeige')
+    parser.add_argument('--output', '-o', default='output', help='Ausgabeverzeichnis')
+    args = parser.parse_args()
+
+    scraper = KleinanzeigenScraper(output_dir=args.output)
+    try:
+        data = scraper.scrape(args.url)
+        print(f"Scraping erfolgreich abgeschlossen. Daten wurden in '{args.output}' gespeichert.")
+    except Exception as e:
+        print(f"Fehler beim Scrapen: {str(e)}")
+
+
+if __name__ == "__main__":
+    main()
