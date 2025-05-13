@@ -187,10 +187,10 @@ class GeminiAnalyzer:
 
             logger.info(f"Analyse-Text erfolgreich extrahiert, Länge: {len(analysis_text)} Zeichen")
 
-            # Chatverlauf initialisieren
+            # Chatverlauf initialisieren - wir speichern nur die Anfrage,
+            # da die Analyse bereits als erste Nachricht im Chat-Interface angezeigt wird
             self.chat_history = [
-                {"role": "user", "content": f"Analysiere diese Kleinanzeige: {data.get('title', 'Unbekannte Anzeige')}"},
-                {"role": "assistant", "content": analysis_text}
+                {"role": "user", "content": f"Analysiere diese Kleinanzeige: {data.get('title', 'Unbekannte Anzeige')}"}
             ]
 
             result = {
@@ -251,12 +251,46 @@ class GeminiAnalyzer:
             self.chat_history.append({"role": "user", "content": question})
 
             # Anfrage an Gemini senden
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=[
+            # Wir fügen die Analyse als Kontext hinzu, falls sie nicht im Chatverlauf ist
+            has_analysis_in_history = any(msg.get("role") == "assistant" for msg in self.chat_history)
+
+            if not has_analysis_in_history:
+                # Analyse-Datei lesen, um den Analysetext zu erhalten
+                try:
+                    import os
+                    import json
+                    analysis_path = os.path.join('output', f'{ad_id}_analysis.json')
+                    if os.path.exists(analysis_path):
+                        with open(analysis_path, 'r', encoding='utf-8') as f:
+                            analysis_data = json.load(f)
+                            analysis_text = analysis_data.get('analysis', '')
+
+                            # Analyse als erste Assistenten-Nachricht hinzufügen
+                            contents = [
+                                {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Du hast bereits eine Analyse erstellt. Bitte beantworte meine Fragen basierend auf dieser Analyse und deinem Wissen."},
+                                {"role": "assistant", "content": analysis_text},
+                                *self.chat_history
+                            ]
+                    else:
+                        contents = [
+                            {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Bitte beantworte meine Fragen basierend auf den Informationen, die du bereits über diese Anzeige hast."},
+                            *self.chat_history
+                        ]
+                except Exception as e:
+                    logger.error(f"Fehler beim Laden der Analyse: {str(e)}")
+                    contents = [
+                        {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Bitte beantworte meine Fragen basierend auf den Informationen, die du bereits über diese Anzeige hast."},
+                        *self.chat_history
+                    ]
+            else:
+                contents = [
                     {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Bitte beantworte meine Fragen basierend auf den Informationen, die du bereits über diese Anzeige hast."},
                     *self.chat_history
                 ]
+
+            response = self.client.models.generate_content(
+                model=self.model_name,
+                contents=contents
             )
 
             # Antwort verarbeiten

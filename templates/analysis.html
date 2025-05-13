@@ -7,75 +7,69 @@
     .analysis-card {
         margin-bottom: 20px;
     }
-    .analysis-content {
-        line-height: 1.6;
-    }
-    .analysis-content p {
+    .chat-container {
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 0.5rem;
         margin-bottom: 1rem;
     }
-    .analysis-content ul, .analysis-content ol {
+    .chat-message {
         margin-bottom: 1rem;
-        padding-left: 1.5rem;
+        padding: 1rem;
+        border-radius: 0.5rem;
     }
-    .analysis-content li {
+    .user-message {
+        background-color: #e9ecef;
+        margin-left: 2rem;
+        margin-right: 0;
+        border-top-right-radius: 0;
+    }
+    .assistant-message {
+        background-color: #d1ecf1;
+        margin-left: 0;
+        margin-right: 2rem;
+        border-top-left-radius: 0;
+    }
+    .message-header {
+        font-size: 0.85rem;
+        color: #6c757d;
         margin-bottom: 0.5rem;
     }
-    .analysis-content h1, .analysis-content h2, .analysis-content h3,
-    .analysis-content h4, .analysis-content h5, .analysis-content h6 {
-        margin-top: 1.5rem;
-        margin-bottom: 1rem;
-        font-weight: bold;
+    .message-content {
+        line-height: 1.6;
+    }
+    .message-content p {
+        margin-bottom: 0.75rem;
+    }
+    .message-content ul, .message-content ol {
+        margin-bottom: 0.75rem;
+        padding-left: 1.5rem;
+    }
+    .message-content li {
+        margin-bottom: 0.25rem;
+    }
+    .chat-form {
+        margin-top: 1rem;
+    }
+    .chat-input {
+        border-radius: 1.5rem;
+        padding-left: 1.5rem;
+        padding-right: 5rem;
+    }
+    .chat-submit {
+        position: absolute;
+        right: 0.5rem;
+        top: 0.25rem;
+        border-radius: 1.5rem;
+    }
+    .question-suggestion {
+        cursor: pointer;
     }
     .analysis-meta {
         font-size: 0.85rem;
         color: #6c757d;
-    }
-    .analysis-header {
-        border-bottom: 1px solid #dee2e6;
-        padding-bottom: 1rem;
-        margin-bottom: 1rem;
-    }
-    .analysis-section {
-        margin-bottom: 1.5rem;
-    }
-    .analysis-section h3 {
-        color: #007bff;
-        font-size: 1.4rem;
-        margin-bottom: 0.75rem;
-    }
-    .analysis-section h4 {
-        color: #495057;
-        font-size: 1.2rem;
-        margin-top: 1rem;
-        margin-bottom: 0.5rem;
-    }
-    .analysis-section ul, .analysis-section ol {
-        padding-left: 1.5rem;
-    }
-    .analysis-section p {
-        margin-bottom: 0.75rem;
-    }
-    .analysis-section blockquote {
-        border-left: 3px solid #007bff;
-        padding-left: 1rem;
-        margin-left: 0.5rem;
-        color: #495057;
-    }
-    .analysis-section code {
-        background-color: #f8f9fa;
-        padding: 0.2rem 0.4rem;
-        border-radius: 0.2rem;
-    }
-    .analysis-section table {
-        width: 100%;
-        margin-bottom: 1rem;
-    }
-    .analysis-section table th, .analysis-section table td {
-        padding: 0.5rem;
-        border: 1px solid #dee2e6;
-    }
-    .analysis-section table th {
-        background-color: #f8f9fa;
     }
 </style>
 {% endblock %}
@@ -94,10 +88,7 @@
         <div class="d-flex justify-content-between align-items-center">
             <h1>KI-Analyse: {{ data.title }}</h1>
             <div>
-                <a href="{{ url_for('chat', ad_id=data.id) }}" class="btn btn-primary">
-                    <i class="fas fa-comments"></i> Fragen stellen
-                </a>
-                <a href="{{ url_for('download_analysis', ad_id=data.id) }}" class="btn btn-outline-primary ml-2">
+                <a href="{{ url_for('download_analysis', ad_id=data.id) }}" class="btn btn-outline-primary">
                     <i class="fas fa-download"></i> Analyse herunterladen
                 </a>
                 <a href="{{ url_for('result', ad_id=data.id) }}" class="btn btn-outline-secondary ml-2">
@@ -110,41 +101,104 @@
 
 <div class="row">
     <div class="col-md-12">
+        <!-- Einheitliche Karte für Analyse und Chat -->
         <div class="card analysis-card shadow">
             <div class="card-header bg-primary text-white">
                 <h4 class="mb-0"><i class="fas fa-robot"></i> Gemini Pro Analyse</h4>
             </div>
-            <div class="card-body">
-                {% if analysis.success %}
-                    <div class="analysis-header">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h2 class="mb-2">Analyseergebnis</h2>
-                                <p class="analysis-meta mb-0">
-                                    <i class="fas fa-microchip"></i> Modell: {{ analysis.model }}
-                                    <span class="mx-2">|</span>
-                                    <i class="far fa-clock"></i> Erstellt: {{ analysis.analyzed_at }}
-                                </p>
-                            </div>
-                            <div>
-                                <span class="badge badge-success p-2">
-                                    <i class="fas fa-check-circle"></i> Erfolgreich
-                                </span>
-                            </div>
+
+            {% if analysis.success %}
+            <div class="card-body p-0">
+                <!-- Analyse-Metadaten -->
+                <div class="d-flex justify-content-end p-2 border-bottom">
+                    <div class="analysis-meta text-right">
+                        <span class="badge badge-success">
+                            <i class="fas fa-check-circle"></i> Analyse erfolgreich
+                        </span>
+                        <small class="ml-2">
+                            <i class="fas fa-microchip"></i> Modell: {{ analysis.model }}
+                            <span class="mx-1">|</span>
+                            <i class="far fa-clock"></i> Erstellt: {{ analysis.analyzed_at }}
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Chat-Container mit Analyse und Folgefragen -->
+                <div class="chat-container" id="chat-container">
+                    <!-- Analyse als erste Nachricht im Chat -->
+                    <div class="chat-message assistant-message">
+                        <div class="message-header">
+                            <strong>Gemini</strong>
+                        </div>
+                        <div class="message-content">
+                            {{ analysis.analysis|markdown|safe }}
                         </div>
                     </div>
 
-                    <div class="analysis-content">
-                        {{ analysis.analysis|markdown|safe }}
+                    <!-- Weitere Chat-Nachrichten -->
+                    {% if chat and chat.chat_history %}
+                        {% for message in chat.chat_history %}
+                            {% if not loop.first or not (message.role == 'assistant' and loop.first) %}
+                                <div class="chat-message {% if message.role == 'user' %}user-message{% else %}assistant-message{% endif %}">
+                                    <div class="message-header">
+                                        <strong>{% if message.role == 'user' %}Sie{% else %}Gemini{% endif %}</strong>
+                                    </div>
+                                    <div class="message-content">
+                                        {% if message.role == 'user' %}
+                                            {{ message.content }}
+                                        {% else %}
+                                            {{ message.content|markdown|safe }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <!-- Chat-Eingabefeld -->
+                {% if gemini_available %}
+                <div class="p-3 border-top">
+                    <form method="POST" action="{{ url_for('analyze', ad_id=data.id) }}" class="chat-form">
+                        <div class="form-group position-relative mb-2">
+                            <input type="text" class="form-control chat-input" name="question" id="question"
+                                placeholder="Stellen Sie eine Frage zur Anzeige..." required>
+                            <button type="submit" class="btn btn-primary chat-submit">
+                                <i class="fas fa-paper-plane"></i> Senden
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="mt-2">
+                        <p class="text-muted mb-2"><small><strong>Vorschläge für Fragen:</strong></small></p>
+                        <div class="d-flex flex-wrap">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mr-2 mb-2 question-suggestion">
+                                Ist der Preis angemessen?
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mr-2 mb-2 question-suggestion">
+                                Welche Fragen sollte ich dem Verkäufer stellen?
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mr-2 mb-2 question-suggestion">
+                                Gibt es Warnzeichen?
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mr-2 mb-2 question-suggestion">
+                                Was sollte ich bei der Besichtigung beachten?
+                            </button>
+                        </div>
                     </div>
-                {% else %}
-                    <div class="alert alert-danger">
-                        <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Fehler bei der Analyse</h4>
-                        <p>Bei der Analyse ist ein Fehler aufgetreten:</p>
-                        <p class="mb-0"><code>{{ analysis.error }}</code></p>
-                    </div>
+                </div>
                 {% endif %}
             </div>
+            {% else %}
+            <div class="card-body">
+                <div class="alert alert-danger">
+                    <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Fehler bei der Analyse</h4>
+                    <p>Bei der Analyse ist ein Fehler aufgetreten:</p>
+                    <p class="mb-0"><code>{{ analysis.error }}</code></p>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="card-footer text-muted">
                 <small>
                     <i class="fas fa-info-circle"></i> Diese Analyse wurde automatisch von einem KI-Modell erstellt und sollte kritisch betrachtet werden.
@@ -160,15 +214,25 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     $(document).ready(function() {
-        // Markdown-Rendering für die Analyse
-        // Wird nur verwendet, wenn der Filter |markdown im Template nicht funktioniert
-        if ($('.analysis-content').length && typeof marked !== 'undefined') {
-            var content = $('.analysis-content').html().trim();
-            // Prüfen, ob der Inhalt bereits HTML-Tags enthält
+        // Markdown-Rendering für die Chat-Nachrichten
+        $('.message-content').each(function() {
+            var content = $(this).html().trim();
             if (content && !content.includes('<p>') && !content.includes('<ul>') && !content.includes('<li>')) {
-                $('.analysis-content').html(marked.parse(content));
+                $(this).html(marked.parse(content));
             }
+        });
+
+        // Scroll zum Ende des Chats
+        var chatContainer = document.getElementById('chat-container');
+        if (chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
+
+        // Frage-Vorschläge in das Eingabefeld einfügen
+        $('.question-suggestion').click(function() {
+            $('#question').val($(this).text().trim());
+            $('#question').focus();
+        });
     });
 </script>
 {% endblock %}
