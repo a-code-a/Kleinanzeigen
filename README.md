@@ -6,6 +6,7 @@ Ein Python-Tool zum Extrahieren aller Informationen von einer Kleinanzeigen-Anze
 
 - Extraktion aller Textinformationen (Titel, Preis, Beschreibung, Details, Standort, etc.)
 - Download aller Bilder der Anzeige
+- Extraktion detaillierter Verkäuferinformationen durch Besuch des Verkäuferprofils
 - Speicherung der Daten in strukturierter Form (JSON)
 - Speicherung der Bilder in einem separaten Ordner
 
@@ -61,8 +62,17 @@ Der Scraper erstellt folgende Ausgabe:
   },
   "seller": {
     "name": "Max Mustermann",
-    "type": "Privat",
-    "member_since": "April 2020"
+    "type": "Privater Nutzer",
+    "member_since": "April 2020",
+    "user_id": "12345678",
+    "profile_url": "https://www.kleinanzeigen.de/s-bestandsliste.html?userId=12345678",
+    "profile": {
+      "user_type": "Privater Nutzer",
+      "member_since": "April 2020",
+      "response_time": "Antwortet in der Regel innerhalb von 24 Stunden",
+      "followers_count": 5,
+      "active_ads_count": 12
+    }
   },
   "images": [
     {
