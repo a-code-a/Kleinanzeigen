@@ -1,0 +1,174 @@
+{% extends "layout.html" %}
+
+{% block title %}Analyse - {{ data.title }}{% endblock %}
+
+{% block head %}
+<style>
+    .analysis-card {
+        margin-bottom: 20px;
+    }
+    .analysis-content {
+        line-height: 1.6;
+    }
+    .analysis-content p {
+        margin-bottom: 1rem;
+    }
+    .analysis-content ul, .analysis-content ol {
+        margin-bottom: 1rem;
+        padding-left: 1.5rem;
+    }
+    .analysis-content li {
+        margin-bottom: 0.5rem;
+    }
+    .analysis-content h1, .analysis-content h2, .analysis-content h3,
+    .analysis-content h4, .analysis-content h5, .analysis-content h6 {
+        margin-top: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: bold;
+    }
+    .analysis-meta {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    .analysis-header {
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+    .analysis-section {
+        margin-bottom: 1.5rem;
+    }
+    .analysis-section h3 {
+        color: #007bff;
+        font-size: 1.4rem;
+        margin-bottom: 0.75rem;
+    }
+    .analysis-section h4 {
+        color: #495057;
+        font-size: 1.2rem;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+    .analysis-section ul, .analysis-section ol {
+        padding-left: 1.5rem;
+    }
+    .analysis-section p {
+        margin-bottom: 0.75rem;
+    }
+    .analysis-section blockquote {
+        border-left: 3px solid #007bff;
+        padding-left: 1rem;
+        margin-left: 0.5rem;
+        color: #495057;
+    }
+    .analysis-section code {
+        background-color: #f8f9fa;
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.2rem;
+    }
+    .analysis-section table {
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+    .analysis-section table th, .analysis-section table td {
+        padding: 0.5rem;
+        border: 1px solid #dee2e6;
+    }
+    .analysis-section table th {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('result', ad_id=data.id) }}">{{ data.title }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Analyse</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>KI-Analyse: {{ data.title }}</h1>
+            <div>
+                <a href="{{ url_for('chat', ad_id=data.id) }}" class="btn btn-primary">
+                    <i class="fas fa-comments"></i> Fragen stellen
+                </a>
+                <a href="{{ url_for('download_analysis', ad_id=data.id) }}" class="btn btn-outline-primary ml-2">
+                    <i class="fas fa-download"></i> Analyse herunterladen
+                </a>
+                <a href="{{ url_for('result', ad_id=data.id) }}" class="btn btn-outline-secondary ml-2">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Anzeige
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card analysis-card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-robot"></i> Gemini Pro Analyse</h4>
+            </div>
+            <div class="card-body">
+                {% if analysis.success %}
+                    <div class="analysis-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="mb-2">Analyseergebnis</h2>
+                                <p class="analysis-meta mb-0">
+                                    <i class="fas fa-microchip"></i> Modell: {{ analysis.model }}
+                                    <span class="mx-2">|</span>
+                                    <i class="far fa-clock"></i> Erstellt: {{ analysis.analyzed_at }}
+                                </p>
+                            </div>
+                            <div>
+                                <span class="badge badge-success p-2">
+                                    <i class="fas fa-check-circle"></i> Erfolgreich
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-content">
+                        {{ analysis.analysis|markdown|safe }}
+                    </div>
+                {% else %}
+                    <div class="alert alert-danger">
+                        <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Fehler bei der Analyse</h4>
+                        <p>Bei der Analyse ist ein Fehler aufgetreten:</p>
+                        <p class="mb-0"><code>{{ analysis.error }}</code></p>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    <i class="fas fa-info-circle"></i> Diese Analyse wurde automatisch von einem KI-Modell erstellt und sollte kritisch betrachtet werden.
+                    Die Ergebnisse basieren auf den verfügbaren Daten und Bildern und stellen keine rechtliche oder professionelle Beratung dar.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Markdown-Rendering für die Analyse
+        // Wird nur verwendet, wenn der Filter |markdown im Template nicht funktioniert
+        if ($('.analysis-content').length && typeof marked !== 'undefined') {
+            var content = $('.analysis-content').html().trim();
+            // Prüfen, ob der Inhalt bereits HTML-Tags enthält
+            if (content && !content.includes('<p>') && !content.includes('<ul>') && !content.includes('<li>')) {
+                $('.analysis-content').html(marked.parse(content));
+            }
+        }
+    });
+</script>
+{% endblock %}

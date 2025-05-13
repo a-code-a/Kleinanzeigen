@@ -1,0 +1,68 @@
+{% extends "layout.html" %}
+
+{% block title %}Anzeige analysieren - {{ data.title }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('result', ad_id=data.id) }}">{{ data.title }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">Analysieren</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>Anzeige analysieren</h1>
+            <div>
+                <a href="{{ url_for('result', ad_id=data.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Zurück zur Anzeige
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-robot"></i> KI-Analyse mit Gemini Pro</h4>
+            </div>
+            <div class="card-body">
+                <p class="lead">
+                    Diese Funktion analysiert die Anzeige mit dem Gemini Pro Modell von Google und erstellt einen detaillierten Bericht.
+                </p>
+
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> Was wird analysiert?</h5>
+                    <ul>
+                        <li>Zusammenfassung des Angebots</li>
+                        <li>Bewertung des Preis-Leistungs-Verhältnisses</li>
+                        <li>Einschätzung der Seriosität des Verkäufers</li>
+                        <li>Auffälligkeiten oder Warnzeichen</li>
+                        <li>Empfehlungen für potenzielle Käufer</li>
+                    </ul>
+                    <p class="mb-0">
+                        <strong>Hinweis:</strong> Die Analyse basiert auf den verfügbaren Daten und Bildern. Die Ergebnisse sind Einschätzungen des KI-Modells und sollten kritisch betrachtet werden.
+                    </p>
+                </div>
+
+                <div class="text-center mt-4">
+                    <form method="POST" action="{{ url_for('analyze', ad_id=data.id) }}">
+                        <button type="submit" class="btn btn-lg btn-primary">
+                            <i class="fas fa-magic"></i> Analyse starten
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-footer text-muted">
+                <small>
+                    <i class="fas fa-info-circle"></i> Die Analyse kann je nach Umfang der Daten und Bilder einige Sekunden bis Minuten dauern.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

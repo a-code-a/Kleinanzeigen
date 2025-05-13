@@ -10,23 +10,61 @@ Eine Flask-Anwendung, die den Kleinanzeigen-Scraper mit einer Benutzeroberfläch
 import os
 import json
 import re
+import logging
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory
+from dotenv import load_dotenv
+from flask import Flask, render_template, request, jsonify, redirect, url_for, send_from_directory, flash, session
 from flask_bootstrap import Bootstrap
 from werkzeug.utils import secure_filename
 from kleinanzeigen_scraper import KleinanzeigenScraper
+from gemini_analyzer import GeminiAnalyzer, save_analysis_result, save_chat_history
+
+# Umgebungsvariablen aus .env-Datei laden
+load_dotenv()
+
+# Logging konfigurieren
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Flask-App initialisieren
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'kleinanzeigen-scraper-secret-key'
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'kleinanzeigen-scraper-secret-key')
 app.config['UPLOAD_FOLDER'] = 'output'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload size
+app.config['GEMINI_API_KEY'] = os.getenv('GEMINI_API_KEY')  # Gemini API-Schlüssel aus Umgebungsvariable
 Bootstrap(app)
+
+# Überprüfen, ob der API-Schlüssel gesetzt ist
+if not app.config['GEMINI_API_KEY']:
+    logger.warning("GEMINI_API_KEY ist nicht gesetzt. Die KI-Analyse-Funktion wird nicht verfügbar sein.")
+    app.config['GEMINI_AVAILABLE'] = False
+else:
+    app.config['GEMINI_AVAILABLE'] = True
 
 # Jinja-Kontext-Prozessor für globale Variablen
 @app.context_processor
-def inject_now():
-    return {'now': datetime.now}
+def inject_globals():
+    return {
+        'now': datetime.now,
+        'gemini_available': app.config.get('GEMINI_AVAILABLE', False)
+    }
+
+# Markdown-Filter für Jinja2
+@app.template_filter('markdown')
+def markdown_filter(text):
+    """Konvertiert Markdown-Text in HTML"""
+    try:
+        import markdown
+        # Wenn der Text bereits HTML-Tags enthält, geben wir ihn unverändert zurück
+        if '<p>' in text or '<ul>' in text or '<li>' in text:
+            return text
+        # Ansonsten konvertieren wir Markdown zu HTML
+        return markdown.markdown(text, extensions=['extra', 'nl2br', 'sane_lists'])
+    except ImportError:
+        # Fallback, wenn markdown nicht installiert ist
+        if '<p>' in text or '<ul>' in text or '<li>' in text:
+            return text
+        return text.replace('\n', '<br>')
 
 # Stellen Sie sicher, dass die Ausgabeverzeichnisse existieren
 os.makedirs('output', exist_ok=True)
@@ -95,6 +133,137 @@ def serve_image(filename):
 def download_json(ad_id):
     """Ermöglicht den Download der JSON-Datei"""
     return send_from_directory('output', f'{ad_id}.json', as_attachment=True)
+
+@app.route('/analyze/<ad_id>', methods=['GET', 'POST'])
+def analyze(ad_id):
+    """Analysiert eine Anzeige mit dem Gemini-Modell"""
+    # Überprüfen, ob die Gemini API verfügbar ist
+    if not app.config.get('GEMINI_AVAILABLE', False):
+        flash('Die KI-Analyse-Funktion ist nicht verfügbar. Bitte stellen Sie sicher, dass der GEMINI_API_KEY in der .env-Datei gesetzt ist.', 'warning')
+        return redirect(url_for('result', ad_id=ad_id))
+
+    try:
+        # JSON-Datei lesen
+        json_path = os.path.join('output', f'{ad_id}.json')
+        if not os.path.exists(json_path):
+            flash('Keine Daten für Anzeigen-ID gefunden.', 'danger')
+            return redirect(url_for('index'))
+
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Prüfen, ob bereits eine Analyse existiert
+        analysis_path = os.path.join('output', f'{ad_id}_analysis.json')
+        if os.path.exists(analysis_path):
+            with open(analysis_path, 'r', encoding='utf-8') as f:
+                analysis_data = json.load(f)
+            return render_template('analysis.html', data=data, analysis=analysis_data)
+
+        # Wenn POST-Anfrage, dann Analyse durchführen
+        if request.method == 'POST':
+            # Bilder für die Analyse sammeln
+            image_paths = []
+            for image in data.get('images', []):
+                if 'filename' in image:
+                    image_path = os.path.join('output', 'images', image['filename'])
+                    if os.path.exists(image_path):
+                        image_paths.append(image_path)
+
+            # Gemini Analyzer initialisieren und Analyse durchführen
+            analyzer = GeminiAnalyzer(api_key=app.config['GEMINI_API_KEY'])
+            analysis_result = analyzer.analyze(data, image_paths)
+
+            # Analyseergebnis speichern
+            save_analysis_result(ad_id, analysis_result)
+
+            return render_template('analysis.html', data=data, analysis=analysis_result)
+
+        # Bei GET-Anfrage nur das Formular anzeigen
+        return render_template('analyze_form.html', data=data)
+
+    except Exception as e:
+        logger.error(f"Fehler bei der Analyse: {str(e)}")
+        flash(f'Fehler bei der Analyse: {str(e)}', 'danger')
+        return redirect(url_for('result', ad_id=ad_id))
+
+@app.route('/download_analysis/<ad_id>')
+def download_analysis(ad_id):
+    """Ermöglicht den Download der Analysedatei"""
+    return send_from_directory('output', f'{ad_id}_analysis.json', as_attachment=True)
+
+@app.route('/chat/<ad_id>', methods=['GET', 'POST'])
+def chat(ad_id):
+    """Chat-Interface für Folgefragen zur Anzeige"""
+    # Überprüfen, ob die Gemini API verfügbar ist
+    if not app.config.get('GEMINI_AVAILABLE', False):
+        flash('Die KI-Chat-Funktion ist nicht verfügbar. Bitte stellen Sie sicher, dass der GEMINI_API_KEY in der .env-Datei gesetzt ist.', 'warning')
+        return redirect(url_for('result', ad_id=ad_id))
+
+    try:
+        # JSON-Datei lesen
+        json_path = os.path.join('output', f'{ad_id}.json')
+        if not os.path.exists(json_path):
+            flash('Keine Daten für Anzeigen-ID gefunden.', 'danger')
+            return redirect(url_for('index'))
+
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Prüfen, ob bereits eine Analyse existiert
+        analysis_path = os.path.join('output', f'{ad_id}_analysis.json')
+        if not os.path.exists(analysis_path):
+            flash('Bitte führen Sie zuerst eine Analyse durch, bevor Sie Folgefragen stellen.', 'warning')
+            return redirect(url_for('analyze', ad_id=ad_id))
+
+        with open(analysis_path, 'r', encoding='utf-8') as f:
+            analysis_data = json.load(f)
+
+        # Prüfen, ob bereits ein Chat existiert
+        chat_path = os.path.join('output', f'{ad_id}_chat.json')
+        chat_data = None
+        if os.path.exists(chat_path):
+            with open(chat_path, 'r', encoding='utf-8') as f:
+                chat_data = json.load(f)
+
+        # Wenn POST-Anfrage, dann Folgefrage stellen
+        if request.method == 'POST':
+            question = request.form.get('question', '').strip()
+
+            if not question:
+                flash('Bitte geben Sie eine Frage ein.', 'warning')
+                return redirect(url_for('chat', ad_id=ad_id))
+
+            # Gemini Analyzer initialisieren
+            analyzer = GeminiAnalyzer(api_key=app.config['GEMINI_API_KEY'])
+
+            # Chatverlauf laden, falls vorhanden
+            if chat_data and 'chat_history' in chat_data:
+                analyzer.chat_history = chat_data['chat_history']
+
+            # Folgefrage stellen
+            chat_result = analyzer.ask_followup_question(question, ad_id)
+
+            # Chatverlauf speichern
+            save_chat_history(ad_id, chat_result)
+
+            # Chat-Daten aktualisieren
+            with open(chat_path, 'r', encoding='utf-8') as f:
+                chat_data = json.load(f)
+
+            return render_template('chat.html', data=data, analysis=analysis_data, chat=chat_data, question=question)
+
+        # Bei GET-Anfrage nur das Chat-Interface anzeigen
+        return render_template('chat.html', data=data, analysis=analysis_data, chat=chat_data)
+
+    except Exception as e:
+        logger.error(f"Fehler beim Chat: {str(e)}")
+        flash(f'Fehler beim Chat: {str(e)}', 'danger')
+        return redirect(url_for('result', ad_id=ad_id))
+
+@app.route('/download_chat/<ad_id>')
+def download_chat(ad_id):
+    """Ermöglicht den Download des Chatverlaufs"""
+    return send_from_directory('output', f'{ad_id}_chat.json', as_attachment=True)
 
 @app.route('/api/scrape', methods=['POST'])
 def api_scrape():

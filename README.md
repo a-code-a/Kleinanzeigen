@@ -10,6 +10,7 @@ Ein Python-Tool zum Extrahieren aller Informationen von einer Kleinanzeigen-Anze
 - Speicherung der Daten in strukturierter Form (JSON)
 - Speicherung der Bilder in einem separaten Ordner
 - Webbasierte Benutzeroberfläche für einfache Bedienung
+- KI-Analyse der Anzeigen mit dem Gemini-Modell von Google
 
 ## Installation
 
@@ -106,11 +107,38 @@ Der Scraper erstellt folgende Ausgabe:
 }
 ```
 
+## KI-Analyse mit Gemini
+
+Die Anwendung bietet eine KI-Analyse-Funktion, die das Gemini-Modell von Google verwendet, um Anzeigen zu analysieren und einen detaillierten Bericht zu erstellen. Der Bericht enthält:
+
+- Zusammenfassung des Angebots
+- Bewertung des Preis-Leistungs-Verhältnisses
+- Einschätzung der Seriosität des Verkäufers
+- Auffälligkeiten oder Warnzeichen
+- Empfehlungen für potenzielle Käufer
+
+### Einrichtung der KI-Analyse
+
+1. Erstellen Sie eine `.env`-Datei im Hauptverzeichnis des Projekts (oder kopieren Sie `.env.example` zu `.env`)
+2. Fügen Sie Ihren Gemini API-Schlüssel hinzu:
+   ```
+   GEMINI_API_KEY=Ihr_API_Schlüssel_hier
+   ```
+3. Sie können einen Gemini API-Schlüssel unter [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) erhalten
+
+### Verwendung der KI-Analyse
+
+1. Scrapen Sie eine Anzeige wie gewohnt
+2. Klicken Sie auf der Ergebnisseite auf den "KI-Analyse"-Button
+3. Starten Sie die Analyse und warten Sie auf das Ergebnis
+4. Der Analysebericht wird angezeigt und kann heruntergeladen werden
+
 ## Hinweise
 
 - Bitte beachten Sie die Nutzungsbedingungen von Kleinanzeigen.de
 - Verwenden Sie dieses Tool verantwortungsvoll und respektieren Sie die Privatsphäre der Verkäufer
 - Übermäßiges Scraping kann zu einer Blockierung Ihrer IP-Adresse führen
+- Die KI-Analyse ist eine Einschätzung und keine Garantie für die Qualität oder Echtheit eines Angebots
 
 ## Lizenz
 
