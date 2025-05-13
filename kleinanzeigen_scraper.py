@@ -192,6 +192,37 @@ class KleinanzeigenScraper:
                 seller['member_since'] = elem.text.replace('Aktiv seit', '').strip()
                 break
 
+        # Verkäufer-Badges (TOP Zufriedenheit, Sehr freundlich, Zuverlässig, etc.)
+        badges = []
+
+        # Neue Methode: Badges aus der userprofile-vip-badges Klasse extrahieren
+        badge_container = soup.select_one('.userprofile-vip-badges')
+        if badge_container:
+            badge_elems = badge_container.select('.userbadge-tag')
+            for badge_elem in badge_elems:
+                badge_text = badge_elem.text.strip()
+                if badge_text:
+                    badges.append(badge_text)
+
+        # Fallback: Alte Methode beibehalten
+        if not badges:
+            badge_elems = soup.select('.userbadges--badge')
+            for badge_elem in badge_elems:
+                badge_text = badge_elem.text.strip()
+                if badge_text:
+                    badges.append(badge_text)
+
+        if badges:
+            seller['badges'] = badges
+
+        # Anzahl der aktiven Anzeigen direkt aus der Anzeigenseite extrahieren
+        active_ads_link = soup.select_one('#poster-other-ads-link')
+        if active_ads_link:
+            link_text = active_ads_link.text.strip()
+            ads_count_match = re.search(r'(\d+)\s+Anzeigen', link_text)
+            if ads_count_match:
+                seller['active_ads_count'] = int(ads_count_match.group(1))
+
         # Verkäufer-ID und Profillink extrahieren
         seller_profile_link = soup.select_one('a[href*="/s-bestandsliste.html?userId="]')
         if seller_profile_link:
@@ -280,17 +311,28 @@ class KleinanzeigenScraper:
                         phone = details_text.replace('Telefon:', '').strip()
                         profile_data['profile']['phone'] = phone
 
-            # Anzahl der aktiven Anzeigen aus dem Seitentitel extrahieren
-            title_elem = soup.select_one('title')
-            if title_elem:
-                title_text = title_elem.text.strip()
-                # Extrahiere die Anzahl der Anzeigen aus dem Titel, falls vorhanden
-                ads_count_match = re.search(r'(\d+)\s+Anzeigen', title_text)
+            # Anzahl der aktiven Anzeigen aus dem Link "X Anzeigen online" extrahieren
+            active_ads_link = soup.select_one('#poster-other-ads-link')
+            if active_ads_link:
+                link_text = active_ads_link.text.strip()
+                ads_count_match = re.search(r'(\d+)\s+Anzeigen', link_text)
                 if ads_count_match:
                     profile_data['profile']['active_ads_count'] = int(ads_count_match.group(1))
                 else:
-                    # Wenn keine Anzahl im Titel, dann hat der Nutzer wahrscheinlich nur eine Anzeige
+                    # Fallback: Wenn kein Match gefunden wurde, aber der Link existiert
                     profile_data['profile']['active_ads_count'] = 1
+            else:
+                # Fallback: Anzahl der aktiven Anzeigen aus dem Seitentitel extrahieren
+                title_elem = soup.select_one('title')
+                if title_elem:
+                    title_text = title_elem.text.strip()
+                    # Extrahiere die Anzahl der Anzeigen aus dem Titel, falls vorhanden
+                    ads_count_match = re.search(r'(\d+)\s+Anzeigen', title_text)
+                    if ads_count_match:
+                        profile_data['profile']['active_ads_count'] = int(ads_count_match.group(1))
+                    else:
+                        # Wenn keine Anzahl im Titel, dann hat der Nutzer wahrscheinlich nur eine Anzeige
+                        profile_data['profile']['active_ads_count'] = 1
 
             # Bewertungen (falls vorhanden)
             rating_elem = soup.select_one('.userbadges--rating')
@@ -307,6 +349,29 @@ class KleinanzeigenScraper:
                     reviews_count_match = re.search(r'(\d+)', reviews_count_text)
                     if reviews_count_match:
                         profile_data['profile']['reviews_count'] = int(reviews_count_match.group(1))
+
+            # Verkäufer-Badges aus dem Profil extrahieren
+            badges = []
+
+            # Neue Methode: Badges aus der userprofile-vip-badges Klasse extrahieren
+            badge_container = soup.select_one('.userprofile-vip-badges')
+            if badge_container:
+                badge_elems = badge_container.select('.userbadge-tag')
+                for badge_elem in badge_elems:
+                    badge_text = badge_elem.text.strip()
+                    if badge_text:
+                        badges.append(badge_text)
+
+            # Fallback: Alte Methode beibehalten
+            if not badges:
+                badge_elems = soup.select('.userbadges--badge')
+                for badge_elem in badge_elems:
+                    badge_text = badge_elem.text.strip()
+                    if badge_text:
+                        badges.append(badge_text)
+
+            if badges:
+                profile_data['profile']['badges'] = badges
 
             return profile_data
 

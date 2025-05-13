@@ -1,0 +1,119 @@
+/* Allgemeine Stile */
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+/* Navbar */
+.navbar-brand {
+    font-weight: bold;
+}
+
+/* Karten */
+.card {
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+.shadow {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Formular */
+.form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Footer */
+.footer {
+    margin-top: auto;
+    background-color: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Ergebnisseite */
+.breadcrumb {
+    background-color: #e9ecef;
+    border-radius: 5px;
+}
+
+.image-gallery img:hover {
+    transform: scale(1.05);
+    transition: transform 0.3s ease;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+    .image-gallery img {
+        max-width: 100%;
+        height: auto;
+    }
+}
+
+/* Animationen */
+.btn-primary {
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+/* Zusätzliche Stile für die Ergebnisseite */
+.detail-card {
+    transition: transform 0.2s ease;
+}
+
+.detail-card:hover {
+    transform: translateY(-5px);
+}
+
+/* Preisanzeige */
+.price-tag {
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Beschreibungstext */
+.description-text {
+    line-height: 1.6;
+}
+
+/* Verkäufer-Badges */
+.badge-primary {
+    background-color: #7b68ee;  /* Lila für TOP Zufriedenheit */
+    color: white;
+    font-size: 0.9rem;
+}
+
+.badge-info {
+    background-color: #5bc0de;  /* Hellblau für andere Badges */
+    color: white;
+    font-size: 0.9rem;
+}
+
+.badge-pill {
+    border-radius: 20px;
+    padding: 8px 15px !important;
+    margin-right: 8px;
+    margin-bottom: 8px;
+    display: inline-flex;
+    align-items: center;
+    transition: transform 0.2s;
+}
+
+.badge-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}

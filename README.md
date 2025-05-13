@@ -1,6 +1,6 @@
 # Kleinanzeigen Scraper
 
-Ein Python-Tool zum Extrahieren aller Informationen von einer Kleinanzeigen-Anzeige, inklusive Bilder.
+Ein Python-Tool zum Extrahieren aller Informationen von einer Kleinanzeigen-Anzeige, inklusive Bilder. Verfügbar als Kommandozeilen-Tool und als Webapp mit Benutzeroberfläche.
 
 ## Funktionen
 
@@ -9,6 +9,7 @@ Ein Python-Tool zum Extrahieren aller Informationen von einer Kleinanzeigen-Anze
 - Extraktion detaillierter Verkäuferinformationen durch Besuch des Verkäuferprofils
 - Speicherung der Daten in strukturierter Form (JSON)
 - Speicherung der Bilder in einem separaten Ordner
+- Webbasierte Benutzeroberfläche für einfache Bedienung
 
 ## Installation
 
@@ -22,17 +23,29 @@ pip install -r requirements.txt
 
 ## Verwendung
 
-### Einfache Verwendung
+### Kommandozeilen-Tool
+
+#### Einfache Verwendung
 
 ```bash
 python kleinanzeigen_scraper.py https://www.kleinanzeigen.de/s-anzeige/beispiel-anzeige/123456789-123-456
 ```
 
-### Mit benutzerdefiniertem Ausgabeverzeichnis
+#### Mit benutzerdefiniertem Ausgabeverzeichnis
 
 ```bash
 python kleinanzeigen_scraper.py https://www.kleinanzeigen.de/s-anzeige/beispiel-anzeige/123456789-123-456 --output meine_anzeigen
 ```
+
+### Webapp
+
+Starten Sie die Webapp mit:
+
+```bash
+python app.py
+```
+
+Öffnen Sie dann in Ihrem Browser die Adresse `http://localhost:5000` und geben Sie die URL einer Kleinanzeigen-Anzeige ein.
 
 ## Ausgabe
 

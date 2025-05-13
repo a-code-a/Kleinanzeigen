@@ -1,0 +1,511 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ data.title }} - Kleinanzeigen Scraper{% endblock %}
+
+{% block head %}
+<style>
+    .detail-card {
+        margin-bottom: 20px;
+    }
+    .price-tag {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+    .location-info {
+        color: #6c757d;
+    }
+    .description-text {
+        white-space: pre-line;
+    }
+
+    /* Verbesserte Bildergalerie */
+    .gallery-container {
+        width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .main-image-container {
+        width: 100%;
+        height: 400px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 15px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .main-image {
+        max-width: 100%;
+        max-height: 400px;
+        object-fit: contain;
+        border-radius: 5px;
+        transition: transform 0.3s ease;
+    }
+
+    .main-image:hover {
+        transform: scale(1.02);
+    }
+
+    .thumbnails-container {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 10px;
+        padding: 10px 0;
+        scrollbar-width: thin;
+        scrollbar-color: #007bff #f0f0f0;
+    }
+
+    .thumbnail {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+
+    .thumbnail:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .thumbnail.active {
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+    }
+
+    .gallery-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        z-index: 10;
+    }
+
+    .gallery-nav:hover {
+        background-color: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+    }
+
+    .gallery-nav.prev {
+        left: 10px;
+    }
+
+    .gallery-nav.next {
+        right: 10px;
+    }
+
+    .image-counter {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.5);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+    }
+
+    /* Für mobile Ansicht */
+    @media (max-width: 768px) {
+        .main-image-container {
+            height: 300px;
+        }
+
+        .main-image {
+            max-height: 300px;
+        }
+
+        .thumbnail {
+            width: 60px;
+            height: 60px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12 mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Home</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ data.title }}</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>{{ data.title }}</h1>
+            <div>
+                <a href="{{ url_for('download_json', ad_id=data.id) }}" class="btn btn-outline-primary">
+                    <i class="fas fa-download"></i> JSON herunterladen
+                </a>
+                <a href="{{ data.url }}" target="_blank" class="btn btn-outline-secondary ml-2">
+                    <i class="fas fa-external-link-alt"></i> Original-Anzeige
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Linke Spalte: Bilder und Beschreibung -->
+    <div class="col-md-8">
+        <!-- Bilder -->
+        <div class="card detail-card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-images"></i> Bilder ({{ data.images|length }})</h4>
+            </div>
+            <div class="card-body">
+                {% if data.images %}
+                <div class="gallery-container">
+                    <!-- Hauptbild -->
+                    <div class="main-image-container">
+                        <div class="gallery-nav prev">
+                            <i class="fas fa-chevron-left"></i>
+                        </div>
+
+                        <a id="main-image-link" href="{{ url_for('serve_image', filename=data.images[0].filename) }}" target="_blank">
+                            <img id="main-image" class="main-image"
+                                 src="{{ url_for('serve_image', filename=data.images[0].filename) }}"
+                                 alt="Hauptbild"
+                                 data-index="0">
+                        </a>
+
+                        <div class="gallery-nav next">
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+
+                        <div class="image-counter">
+                            <span id="current-image">1</span> / <span id="total-images">{{ data.images|length }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Thumbnails -->
+                    <div class="thumbnails-container">
+                        {% for image in data.images %}
+                        <img class="thumbnail {% if loop.first %}active{% endif %}"
+                             src="{{ url_for('serve_image', filename=image.filename) }}"
+                             alt="Thumbnail {{ loop.index }}"
+                             data-index="{{ loop.index0 }}"
+                             data-full="{{ url_for('serve_image', filename=image.filename) }}"
+                             data-link="{{ url_for('serve_image', filename=image.filename) }}"
+                             title="{{ image.width }}x{{ image.height }} - {{ (image.size_bytes / 1024)|round(1) }} KB">
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted">Keine Bilder vorhanden.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Beschreibung -->
+        <div class="card detail-card mt-4 shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-align-left"></i> Beschreibung</h4>
+            </div>
+            <div class="card-body">
+                <p class="description-text">{{ data.description }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rechte Spalte: Preis, Details, Standort, Verkäufer -->
+    <div class="col-md-4">
+        <!-- Preis -->
+        <div class="card detail-card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0"><i class="fas fa-tag"></i> Preis</h4>
+            </div>
+            <div class="card-body">
+                <p class="price-tag mb-0">{{ data.price }} €</p>
+            </div>
+        </div>
+
+        <!-- Standort -->
+        <div class="card detail-card mt-4 shadow">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-map-marker-alt"></i> Standort</h4>
+            </div>
+            <div class="card-body">
+                {% if data.location %}
+                <p class="location-info mb-0">
+                    {% if data.location.address %}
+                    {{ data.location.address }}
+                    {% endif %}
+                </p>
+                {% else %}
+                <p class="text-muted mb-0">Keine Standortinformationen verfügbar.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="card detail-card mt-4 shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-list"></i> Details</h4>
+            </div>
+            <div class="card-body">
+                {% if data.details %}
+                <table class="table table-sm table-hover mb-0">
+                    <tbody>
+                        {% for key, value in data.details.items() %}
+                        <tr>
+                            <th scope="row">{{ key }}</th>
+                            <td>{{ value }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted mb-0">Keine Details verfügbar.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Verkäufer -->
+        <div class="card detail-card mt-4 shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0"><i class="fas fa-user"></i> Verkäufer</h4>
+            </div>
+            <div class="card-body">
+                {% if data.seller %}
+                <table class="table table-sm table-hover mb-0">
+                    <tbody>
+                        {% if data.seller.name %}
+                        <tr>
+                            <th scope="row">Name</th>
+                            <td>{{ data.seller.name }}</td>
+                        </tr>
+                        {% endif %}
+
+                        {% if data.seller.type %}
+                        <tr>
+                            <th scope="row">Typ</th>
+                            <td>{{ data.seller.type }}</td>
+                        </tr>
+                        {% endif %}
+
+                        {% if data.seller.member_since %}
+                        <tr>
+                            <th scope="row">Mitglied seit</th>
+                            <td>{{ data.seller.member_since }}</td>
+                        </tr>
+                        {% endif %}
+
+                        {% if data.seller.profile %}
+                            {% if data.seller.profile.response_time %}
+                            <tr>
+                                <th scope="row">Antwortzeit</th>
+                                <td>{{ data.seller.profile.response_time }}</td>
+                            </tr>
+                            {% endif %}
+
+                            {% if data.seller.active_ads_count or (data.seller.profile and data.seller.profile.active_ads_count) %}
+                            <tr>
+                                <th scope="row">Aktive Anzeigen</th>
+                                <td>
+                                    {% if data.seller.active_ads_count %}
+                                        {{ data.seller.active_ads_count }}
+                                    {% elif data.seller.profile and data.seller.profile.active_ads_count %}
+                                        {{ data.seller.profile.active_ads_count }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+
+                            {% if data.seller.profile.followers_count %}
+                            <tr>
+                                <th scope="row">Follower</th>
+                                <td>{{ data.seller.profile.followers_count }}</td>
+                            </tr>
+                            {% endif %}
+
+                            {% if data.seller.profile.rating_percentage %}
+                            <tr>
+                                <th scope="row">Bewertung</th>
+                                <td>{{ data.seller.profile.rating_percentage }}% ({{ data.seller.profile.reviews_count }} Bewertungen)</td>
+                            </tr>
+                            {% endif %}
+                        {% endif %}
+                    </tbody>
+                </table>
+
+                <!-- Verkäufer-Badges anzeigen -->
+                {% if data.seller.badges or (data.seller.profile and data.seller.profile.badges) %}
+                <div class="mt-3">
+                    <h5>Badges:</h5>
+                    <div class="d-flex flex-wrap">
+                        {% for badge in data.seller.badges %}
+                        <span class="badge badge-pill badge-primary mr-2 mb-2 p-2">
+                            {% if "TOP" in badge %}
+                                <i class="fas fa-crown mr-1"></i>
+                            {% elif "freundlich" in badge %}
+                                <i class="fas fa-smile mr-1"></i>
+                            {% elif "Zuverlässig" in badge %}
+                                <i class="fas fa-check-circle mr-1"></i>
+                            {% elif "Schnell" in badge %}
+                                <i class="fas fa-bolt mr-1"></i>
+                            {% elif "Kommunikation" in badge %}
+                                <i class="fas fa-comments mr-1"></i>
+                            {% else %}
+                                <i class="fas fa-star mr-1"></i>
+                            {% endif %}
+                            {{ badge }}
+                        </span>
+                        {% endfor %}
+
+                        {% if data.seller.profile and data.seller.profile.badges %}
+                            {% for badge in data.seller.profile.badges %}
+                                {% if badge not in data.seller.badges|default([]) %}
+                                <span class="badge badge-pill badge-info mr-2 mb-2 p-2">
+                                    {% if "TOP" in badge %}
+                                        <i class="fas fa-crown mr-1"></i>
+                                    {% elif "freundlich" in badge %}
+                                        <i class="fas fa-smile mr-1"></i>
+                                    {% elif "Zuverlässig" in badge %}
+                                        <i class="fas fa-check-circle mr-1"></i>
+                                    {% elif "Schnell" in badge %}
+                                        <i class="fas fa-bolt mr-1"></i>
+                                    {% elif "Kommunikation" in badge %}
+                                        <i class="fas fa-comments mr-1"></i>
+                                    {% else %}
+                                        <i class="fas fa-star mr-1"></i>
+                                    {% endif %}
+                                    {{ badge }}
+                                </span>
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if data.seller.profile_url %}
+                <div class="mt-3">
+                    <a href="{{ data.seller.profile_url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> Verkäuferprofil ansehen
+                    </a>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <p class="text-muted mb-0">Keine Verkäuferinformationen verfügbar.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Variablen für die Bildergalerie
+        const images = {{ data.images|tojson }};
+        let currentIndex = 0;
+        const totalImages = images.length;
+
+        // Funktion zum Aktualisieren des Hauptbildes
+        function updateMainImage(index) {
+            // Sicherstellen, dass der Index gültig ist
+            if (index < 0) index = totalImages - 1;
+            if (index >= totalImages) index = 0;
+
+            currentIndex = index;
+
+            // Hauptbild aktualisieren
+            const imageUrl = $('#main-image').attr('src').split('/').slice(0, -1).join('/') + '/' + images[index].filename;
+            $('#main-image').attr('src', imageUrl);
+            $('#main-image').attr('data-index', index);
+
+            // Link aktualisieren
+            $('#main-image-link').attr('href', imageUrl);
+
+            // Zähler aktualisieren
+            $('#current-image').text(index + 1);
+
+            // Aktiven Thumbnail markieren
+            $('.thumbnail').removeClass('active');
+            $(`.thumbnail[data-index="${index}"]`).addClass('active');
+
+            // Thumbnail in den sichtbaren Bereich scrollen
+            const thumbnail = $(`.thumbnail[data-index="${index}"]`);
+            const container = $('.thumbnails-container');
+            container.animate({
+                scrollLeft: thumbnail.offset().left - container.offset().left + container.scrollLeft() - (container.width() / 2) + (thumbnail.width() / 2)
+            }, 300);
+        }
+
+        // Event-Handler für Thumbnails
+        $('.thumbnail').on('click', function() {
+            const index = parseInt($(this).data('index'));
+            updateMainImage(index);
+        });
+
+        // Event-Handler für Navigationspfeile
+        $('.gallery-nav.prev').on('click', function() {
+            updateMainImage(currentIndex - 1);
+        });
+
+        $('.gallery-nav.next').on('click', function() {
+            updateMainImage(currentIndex + 1);
+        });
+
+        // Tastaturnavigation
+        $(document).on('keydown', function(e) {
+            // Nur reagieren, wenn die Bildergalerie im Viewport ist
+            const galleryTop = $('.gallery-container').offset().top;
+            const galleryBottom = galleryTop + $('.gallery-container').height();
+            const windowTop = $(window).scrollTop();
+            const windowBottom = windowTop + $(window).height();
+
+            if (galleryBottom >= windowTop && galleryTop <= windowBottom) {
+                if (e.keyCode === 37) { // Pfeil links
+                    updateMainImage(currentIndex - 1);
+                } else if (e.keyCode === 39) { // Pfeil rechts
+                    updateMainImage(currentIndex + 1);
+                }
+            }
+        });
+
+        // Touch-Swipe für mobile Geräte
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        $('.main-image-container').on('touchstart', function(e) {
+            touchStartX = e.originalEvent.touches[0].clientX;
+        });
+
+        $('.main-image-container').on('touchend', function(e) {
+            touchEndX = e.originalEvent.changedTouches[0].clientX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            if (touchEndX < touchStartX - 50) {
+                // Swipe nach links
+                updateMainImage(currentIndex + 1);
+            } else if (touchEndX > touchStartX + 50) {
+                // Swipe nach rechts
+                updateMainImage(currentIndex - 1);
+            }
+        }
+    });
+</script>
+{% endblock %}

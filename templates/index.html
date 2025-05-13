@@ -1,0 +1,60 @@
+{% extends "layout.html" %}
+
+{% block title %}Kleinanzeigen Scraper - Home{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0"><i class="fas fa-search"></i> Kleinanzeigen Scraper</h3>
+            </div>
+            <div class="card-body">
+                <p class="lead">Geben Sie eine Kleinanzeigen-URL ein, um alle Informationen zu extrahieren.</p>
+                
+                {% if error %}
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-circle"></i> {{ error }}
+                </div>
+                {% endif %}
+                
+                <form action="{{ url_for('scrape') }}" method="post">
+                    <div class="form-group">
+                        <label for="url"><i class="fas fa-link"></i> Kleinanzeigen URL:</label>
+                        <input type="text" class="form-control" id="url" name="url" 
+                               placeholder="https://www.kleinanzeigen.de/s-anzeige/beispiel/123456789-123-456" 
+                               required>
+                        <small class="form-text text-muted">
+                            Beispiel: https://www.kleinanzeigen.de/s-anzeige/beispiel/123456789-123-456
+                        </small>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg btn-block">
+                        <i class="fas fa-search"></i> Informationen abrufen
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4 shadow">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-info-circle"></i> Über dieses Tool</h4>
+            </div>
+            <div class="card-body">
+                <p>Dieses Tool extrahiert folgende Informationen aus einer Kleinanzeigen-Anzeige:</p>
+                <ul>
+                    <li>Titel, Preis und Beschreibung</li>
+                    <li>Alle Details und Eigenschaften</li>
+                    <li>Standortinformationen</li>
+                    <li>Verkäuferinformationen (inkl. Profildetails)</li>
+                    <li>Alle Bilder der Anzeige</li>
+                </ul>
+                <p class="mb-0 text-muted">
+                    <small>
+                        <i class="fas fa-exclamation-triangle"></i> Bitte beachten Sie die Nutzungsbedingungen von Kleinanzeigen.de und verwenden Sie dieses Tool verantwortungsvoll.
+                    </small>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

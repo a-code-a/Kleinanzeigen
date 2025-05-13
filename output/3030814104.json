@@ -1,0 +1,107 @@
+{
+  "id": "3030814104",
+  "url": "https://www.kleinanzeigen.de/s-anzeige/kawasaki-zx6r-600p-rennstrecke-preissenkung/3030814104-305-1889",
+  "scraped_at": "2025-05-13T10:48:24.203927",
+  "title": "Kawasaki ZX6R 600P Rennstrecke Preissenkung",
+  "price": "3.190",
+  "description": "Hallo liebe Zweiradfreunde,aufgrund eines Modellwechsels verkaufe ich meine Rennstrecken -Kawa.Gerade für Einsteiger auf der Renne ist dieses Motorrad echt top geeignet und wird sicher viel Spaß bereiten.Für den Rennstreckeneinsatz wurden folgende Teile verbaut:CRC-RennverkleidungMRA-Racingscheibe getönt (weitere klare in Reserve)Sturzprotektoren links & rechts verbautHebelschützer von LSLBremshebel LSL kurzKupplungshebel LSL kurzLenkungsdämper LSLStromversorgung für LaptimerZentralaufnahme LaptimerQuickshifter v. Bazzaz (hochschalten ohne Kuppeln)neue Racingbremsscheibe vornFußrastenanlage von GillesKettenrad, Kette und Ritzel fast brandneu (200km)brandneue Batterie inkl. Ladungsanzeige und Ladebuchse leicht zugänglich verbautMit dem Einbau der ganzen Teile wurde auch eine Kennfeldoptimierung vorgenommen.Die Originalverkleidung ist nicht mehr vorhanden, sodass ein Umbau für die Straße aufwändig würde.Der Bursig Zentralständer kann optional mit erworben werden.Auf der Rennstrecke bin ich mit dem Bike nie gestürzt. Die Vorbesitzer haben das Motorrad nur auf der Straße bewegt.Es handelt sich um einen Privatverkauf ohne Garantie oder Gewährleistungsansprüche.Dann heißt es nur noch lackieren und direkt auf der Renne zur neuen Saison Gas geben.Bei Fragen schreibt mich einfach an.Viele Grüße SteffenP.S. Fragen á la \"Was ist letzter Preis?\" werden direkt überlesen;-)",
+  "details": {
+    "Art": "Motorräder",
+    "Marke": "Kawasaki",
+    "Kilometerstand": "47.321 km",
+    "Erstzulassung": "August 2007",
+    "Hubraum": "600 ccm",
+    "Leistung": "126 PS",
+    "Getriebe": "Manuell"
+  },
+  "location": {
+    "address": "50259 Nordrhein-Westfalen - Pulheim",
+    "zip_code": "50259",
+    "city": "Nordrhein-Westfalen - Pulheim"
+  },
+  "seller": {
+    "name": "Steffen Bähre",
+    "type": "Privater Nutzer",
+    "member_since": "15.08.2016",
+    "badges": [
+      "TOP Zufriedenheit",
+      "Sehr freundlich",
+      "Zuverlässig"
+    ],
+    "active_ads_count": 3,
+    "user_id": "41338259",
+    "profile_url": "https://www.kleinanzeigen.de/s-bestandsliste.html?userId=41338259",
+    "profile": {
+      "user_type": "Privater Nutzer",
+      "member_since": "15.08.2016",
+      "response_time": "Antwortet in der Regel innerhalb von 3 Stunden",
+      "followers_count": 3,
+      "active_ads_count": 1
+    }
+  },
+  "images": [
+    {
+      "filename": "3030814104_1.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/67/67813643-dc4d-4e0c-b004-e491344bf9f8?rule=$_59.AUTO",
+      "width": 960,
+      "height": 720,
+      "size_bytes": 169830
+    },
+    {
+      "filename": "3030814104_2.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/d4/d448b814-f6a7-4f7d-ad90-e89147ea59f0?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 85595
+    },
+    {
+      "filename": "3030814104_3.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/f0/f0667f78-b454-46fc-ba6b-f4190861012e?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 82579
+    },
+    {
+      "filename": "3030814104_4.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/cb/cb2ac734-ddf3-442f-90fc-7ed364572366?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 79423
+    },
+    {
+      "filename": "3030814104_5.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/22/22314de3-ee37-4529-b36a-88624f98b8c6?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 81960
+    },
+    {
+      "filename": "3030814104_6.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/cc/ccf10012-6665-4e19-a074-cdeaf080743b?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 115367
+    },
+    {
+      "filename": "3030814104_7.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/27/27c11da1-ba19-4f95-9f33-745314233b2b?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 119973
+    },
+    {
+      "filename": "3030814104_8.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/70/70b35199-beff-4c8e-aaeb-1f475a7cdac1?rule=$_59.AUTO",
+      "width": 720,
+      "height": 960,
+      "size_bytes": 146339
+    },
+    {
+      "filename": "3030814104_9.jpg",
+      "original_url": "https://img.kleinanzeigen.de/api/v1/prod-ads/images/cc/ccb4682a-150b-4dca-bd3e-0df9e8b0f91c?rule=$_59.AUTO",
+      "width": 960,
+      "height": 720,
+      "size_bytes": 172638
+    }
+  ]
+}
