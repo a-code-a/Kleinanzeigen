@@ -30,15 +30,23 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'kleinanzeigen-scraper-secret-key')
 app.config['UPLOAD_FOLDER'] = 'output'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB max upload size
-app.config['GEMINI_API_KEY'] = os.getenv('GEMINI_API_KEY')  # Gemini API-Schlüssel aus Umgebungsvariable
+app.config['GEMINI_API_KEY'] = os.getenv('GEMINI_API_KEY', "DUMMY_API_KEY_FOR_TESTING")  # Gemini API-Schlüssel aus Umgebungsvariable, mit Fallback für Tests
 Bootstrap(app)
 
-# Überprüfen, ob der API-Schlüssel gesetzt ist
-if not app.config['GEMINI_API_KEY']:
-    logger.warning("GEMINI_API_KEY ist nicht gesetzt. Die KI-Analyse-Funktion wird nicht verfügbar sein.")
-    app.config['GEMINI_AVAILABLE'] = False
+# Überprüfen, ob der API-Schlüssel gesetzt ist (auch der Dummy-Schlüssel gilt als "gesetzt" für den Testablauf)
+if not app.config['GEMINI_API_KEY'] or app.config['GEMINI_API_KEY'] == "YOUR_GEMINI_API_KEY_HERE_PLACEHOLDER": # Ggf. Placeholder prüfen
+    logger.warning("GEMINI_API_KEY ist nicht oder nur mit Placeholder gesetzt. Die KI-Analyse-Funktion wird nicht verfügbar sein für echte Aufrufe.")
+    # Für Tests mit dem Dummy-Key wollen wir, dass GEMINI_AVAILABLE true ist.
+    if app.config['GEMINI_API_KEY'] == "DUMMY_API_KEY_FOR_TESTING":
+        logger.info("Verwende DUMMY_API_KEY_FOR_TESTING. Gemini-Funktionen werden gemockt.")
+        app.config['GEMINI_AVAILABLE'] = True
+    else:
+        app.config['GEMINI_AVAILABLE'] = False
 else:
     app.config['GEMINI_AVAILABLE'] = True
+    if app.config['GEMINI_API_KEY'] == "DUMMY_API_KEY_FOR_TESTING":
+         logger.info("Verwende DUMMY_API_KEY_FOR_TESTING. Gemini-Funktionen werden gemockt.")
+
 
 # Jinja-Kontext-Prozessor für globale Variablen
 @app.context_processor
@@ -177,26 +185,51 @@ def analyze(ad_id):
             # Gemini Analyzer initialisieren
             analyzer = GeminiAnalyzer(api_key=app.config['GEMINI_API_KEY'])
 
-            # Chatverlauf laden, falls vorhanden
+            # Chatverlauf laden.
+            # Priorität: _chat.json (enthält den gesamten Verlauf)
+            # Fallback: _analysis.json (enthält den initialen Chat nach der Analyse)
+            loaded_chat_history = None
             if chat_data and 'chat_history' in chat_data:
-                analyzer.chat_history = chat_data['chat_history']
+                loaded_chat_history = chat_data['chat_history']
+                logger.info(f"Chatverlauf aus {ad_id}_chat.json geladen.")
             elif analysis_data and 'chat_history' in analysis_data:
-                analyzer.chat_history = analysis_data['chat_history']
+                loaded_chat_history = analysis_data['chat_history']
+                logger.info(f"Initialen Chatverlauf aus {ad_id}_analysis.json geladen.")
+            
+            if loaded_chat_history:
+                analyzer.chat_history = loaded_chat_history
+            else:
+                logger.warning(f"Kein Chatverlauf für {ad_id} gefunden. Starte leeren Chat.")
+                analyzer.chat_history = []
 
-            # Folgefrage stellen
-            chat_result = analyzer.ask_followup_question(question, ad_id)
 
-            # Chatverlauf speichern
-            save_chat_history(ad_id, chat_result)
+            # Folgefrage stellen, scraped_data (als 'data' geladen) übergeben
+            chat_result = analyzer.ask_followup_question(question, ad_id, data)
 
-            # Chat-Daten aktualisieren
-            with open(chat_path, 'r', encoding='utf-8') as f:
-                chat_data = json.load(f)
+            # Chatverlauf speichern (chat_result enthält den aktualisierten Verlauf)
+            if chat_result.get('success'):
+                save_chat_history(ad_id, chat_result) # chat_result enthält bereits 'chat_history'
+            else:
+                flash(f"Fehler bei der Beantwortung der Frage: {chat_result.get('error', 'Unbekannter Fehler')}", 'danger')
+
+            # Chat-Daten für das Template neu laden, falls erfolgreich gespeichert
+            if chat_result.get('success') and os.path.exists(chat_path):
+                with open(chat_path, 'r', encoding='utf-8') as f:
+                    chat_data = json.load(f)
+            elif not chat_result.get('success'):
+                # Wenn ein Fehler bei der API aufgetreten ist, aber wir den Chat trotzdem anzeigen wollen
+                # Verwende den von ask_followup_question zurückgegebenen Chatverlauf (kann Fehlerinfo enthalten)
+                if chat_result.get('chat_history'):
+                     chat_data = {'chat_history': chat_result['chat_history']}
+                else: # Fallback, falls chat_history nicht mal im Fehlerfall existiert
+                     chat_data = {'chat_history': loaded_chat_history if loaded_chat_history else []}
+
 
             return render_template('analysis.html', data=data, analysis=analysis_data, chat=chat_data)
 
-        # Wenn POST-Anfrage ohne Frage, dann Analyse durchführen
+        # Wenn POST-Anfrage ohne Frage (d.h. ErstAnalyse anfordern)
         elif request.method == 'POST' and not analysis_exists:
+            logger.info(f"Starte ErstAnalyse für Anzeige {ad_id}")
             # Bilder für die Analyse sammeln
             image_paths = []
             for image in data.get('images', []):
@@ -207,21 +240,51 @@ def analyze(ad_id):
 
             # Gemini Analyzer initialisieren und Analyse durchführen
             analyzer = GeminiAnalyzer(api_key=app.config['GEMINI_API_KEY'])
-            analysis_result = analyzer.analyze(data, image_paths)
+            analysis_result = analyzer.analyze(data, image_paths) # Enthält jetzt 'analysis' und 'chat_history'
 
-            # Analyseergebnis speichern
-            save_analysis_result(ad_id, analysis_result)
+            if analysis_result.get('success'):
+                # Analyseergebnis speichern (enthält jetzt auch den initialen Chatverlauf)
+                save_analysis_result(ad_id, analysis_result)
+                # Initialen Chat auch als separate Chat-Datei speichern für Konsistenz
+                save_chat_history(ad_id, analysis_result) 
+                
+                # Chat-Daten für das Template vorbereiten
+                current_chat_data = {'chat_history': analysis_result.get('chat_history', [])}
+                analysis_text_for_template = analysis_result.get('analysis', "Analyse nicht verfügbar.")
+                
+                logger.info(f"Analyse für {ad_id} erfolgreich. Chatverlauf initialisiert.")
+                return render_template('analysis.html', data=data, analysis={'analysis': analysis_text_for_template}, chat=current_chat_data)
+            else:
+                flash(f"Fehler bei der Erstanalyse: {analysis_result.get('error', 'Unbekannter Fehler')}", 'danger')
+                return redirect(url_for('result', ad_id=ad_id))
 
-            return render_template('analysis.html', data=data, analysis=analysis_result, chat=None)
 
-        # Bei GET-Anfrage und existierender Analyse, Analyse anzeigen
-        elif analysis_exists:
+        # Bei GET-Anfrage und existierender Analyse, Analyse und Chat anzeigen
+        elif analysis_exists: # Dies bedeutet, _analysis.json existiert
+            logger.info(f"Zeige existierende Analyse für {ad_id}")
             with open(analysis_path, 'r', encoding='utf-8') as f:
-                analysis_data = json.load(f)
-            return render_template('analysis.html', data=data, analysis=analysis_data, chat=chat_data)
+                analysis_data_from_file = json.load(f) # Dies ist das Ergebnis von analyzer.analyze()
 
-        # Bei GET-Anfrage ohne existierende Analyse, Formular anzeigen
-        else:
+            # Chat-Daten für das Template laden
+            # Priorität: _chat.json, Fallback: chat_history aus _analysis.json
+            current_chat_data_for_template = None
+            if chat_data and 'chat_history' in chat_data: # chat_data wurde oben aus _chat.json geladen
+                current_chat_data_for_template = chat_data
+                logger.info(f"Chat für Anzeige {ad_id} aus _chat.json geladen.")
+            elif 'chat_history' in analysis_data_from_file:
+                current_chat_data_for_template = {'chat_history': analysis_data_from_file['chat_history']}
+                logger.info(f"Chat für Anzeige {ad_id} aus _analysis.json (initial) geladen.")
+            else:
+                current_chat_data_for_template = {'chat_history': []} # Fallback
+                logger.warning(f"Kein Chatverlauf in {ad_id}_analysis.json oder {ad_id}_chat.json gefunden.")
+            
+            analysis_text_for_template = analysis_data_from_file.get('analysis', "Analyse nicht verfügbar.")
+
+            return render_template('analysis.html', data=data, analysis={'analysis': analysis_text_for_template}, chat=current_chat_data_for_template)
+
+        # Bei GET-Anfrage ohne existierende Analyse (d.h. _analysis.json existiert nicht), Formular anzeigen
+        else: # not analysis_exists
+            logger.info(f"Zeige Analyse-Formular für {ad_id}, da keine existierende Analyse gefunden wurde.")
             return render_template('analyze_form.html', data=data)
 
     except Exception as e:

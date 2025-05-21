@@ -1,3 +1,4 @@
+```python
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -11,8 +12,10 @@ import os
 import json
 import base64
 from google import genai
+from google.generativeai import types
 from typing import Dict, List, Any, Optional
 import logging
+from datetime import datetime
 
 # Logging konfigurieren
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -31,34 +34,22 @@ class GeminiAnalyzer:
         """
         self.api_key = api_key
         self.model_name = model_name
-        self.client = genai.Client(api_key=api_key)
         self.chat_history = []  # Speichert den Chatverlauf für Folgefragen
-        logger.info(f"GeminiAnalyzer initialisiert mit Modell: {model_name}")
+        if self.api_key != "DUMMY_API_KEY_FOR_TESTING":
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel(self.model_name)
+            self.chat = None # Will be initialized in analyze or ask_followup_question
+            logger.info(f"GeminiAnalyzer initialisiert mit Modell: {self.model_name}")
+        else:
+            self.model = None # No actual model needed for mocking
+            logger.info(f"GeminiAnalyzer initialisiert im MOCK-MODUS mit Modell: {self.model_name}")
+
 
     def _encode_image(self, image_path: str) -> str:
-        """
-        Kodiert ein Bild als Base64-String.
-
-        Args:
-            image_path (str): Der Pfad zum Bild
-
-        Returns:
-            str: Der Base64-kodierte String des Bildes
-        """
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
     def _prepare_prompt(self, data: Dict[str, Any], analysis_type: str = "standard") -> str:
-        """
-        Bereitet den Prompt für die Analyse vor.
-
-        Args:
-            data (Dict[str, Any]): Die Kleinanzeigen-Daten
-            analysis_type (str, optional): Der Typ der Analyse. Standardmäßig "standard".
-
-        Returns:
-            str: Der vorbereitete Prompt
-        """
         if analysis_type == "standard":
             prompt = f"""
             Analysiere diese Kleinanzeige und erstelle einen detaillierten Bericht.
@@ -70,14 +61,12 @@ class GeminiAnalyzer:
             Details:
             """
 
-            # Details hinzufügen
             if data.get('details'):
                 for key, value in data['details'].items():
                     prompt += f"- {key}: {value}\n"
             else:
                 prompt += "Keine Details vorhanden.\n"
 
-            # Verkäuferinformationen hinzufügen
             prompt += "\nVerkäuferinformationen:\n"
             if data.get('seller'):
                 seller = data['seller']
@@ -97,14 +86,12 @@ class GeminiAnalyzer:
             else:
                 prompt += "Keine Verkäuferinformationen vorhanden.\n"
 
-            # Standort hinzufügen
             prompt += "\nStandort:\n"
             if data.get('location') and data['location'].get('address'):
                 prompt += f"- Adresse: {data['location']['address']}\n"
             else:
                 prompt += "Keine Standortinformationen vorhanden.\n"
 
-            # Anweisungen für die Analyse
             prompt += """
             Bitte analysiere diese Anzeige und erstelle einen Bericht mit folgenden Punkten:
             1. Zusammenfassung des Angebots
@@ -115,115 +102,81 @@ class GeminiAnalyzer:
 
             Beziehe die Bilder in deine Analyse mit ein und beschreibe, was auf ihnen zu sehen ist und ob sie mit der Beschreibung übereinstimmen.
             """
-
             return prompt
         else:
-            # Andere Analysetypen können hier implementiert werden
             return "Bitte analysiere diese Kleinanzeige."
 
     def analyze(self, data: Dict[str, Any], image_paths: List[str], analysis_type: str = "standard") -> Dict[str, Any]:
         """
         Analysiert die Kleinanzeigen-Daten mit dem Gemini-Modell.
-
-        Args:
-            data (Dict[str, Any]): Die Kleinanzeigen-Daten
-            image_paths (List[str]): Liste der Pfade zu den Bildern
-            analysis_type (str, optional): Der Typ der Analyse. Standardmäßig "standard".
-
-        Returns:
-            Dict[str, Any]: Das Analyseergebnis
         """
-        try:
-            # Prompt vorbereiten
-            prompt = self._prepare_prompt(data, analysis_type)
+        prompt = self._prepare_prompt(data, analysis_type)
+        analysis_text = "" # Initialize analysis_text
+        current_time = datetime.now().isoformat()
 
-            # Inhalte für die Anfrage vorbereiten
-            contents = [prompt]
-
-            # Bilder hinzufügen (maximal 3 Bilder, um die Anfragegröße zu begrenzen)
-            from google.genai import types
-
-            for i, img_path in enumerate(image_paths[:3]):  # Begrenze auf 3 Bilder
-                try:
-                    with open(img_path, 'rb') as f:
-                        image_bytes = f.read()
-
-                    image_part = types.Part.from_bytes(
-                        data=image_bytes,
-                        mime_type=self._get_mime_type(img_path)
-                    )
-
-                    contents.append(image_part)
-                    logger.info(f"Bild hinzugefügt: {img_path}")
-                except Exception as e:
-                    logger.error(f"Fehler beim Hinzufügen des Bildes {img_path}: {str(e)}")
-
-            # Anfrage an Gemini senden gemäß der aktuellen API-Dokumentation
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=contents
-            )
-
-            # Antwort verarbeiten
-            from datetime import datetime
-
-            # Prüfen, ob die Antwort erfolgreich war
-            if hasattr(response, 'text'):
+        if self.api_key == "DUMMY_API_KEY_FOR_TESTING":
+            logger.info(f"MOCK-ANALYSE für Daten: {data.get('title')}")
+            analysis_text = f"Dies ist eine MOCK-Analyse für '{data.get('title', 'Unbekannte Anzeige')}'.\n\n1. Zusammenfassung: Mock-Zusammenfassung.\n2. Preis: Mock-Preisbewertung.\n3. Verkäufer: Mock-Verkäuferseriosität.\n4. Warnzeichen: Keine Mock-Warnzeichen.\n5. Empfehlungen: Mock-Empfehlungen."
+            logger.info(f"Mock-Analyse-Text generiert, Länge: {len(analysis_text)} Zeichen")
+            
+        else: # Real API call logic
+            try:
+                contents = [prompt]
+                # from google.generativeai import types # Already imported at the top
+                for i, img_path in enumerate(image_paths[:3]):
+                    try:
+                        with open(img_path, 'rb') as f:
+                            image_bytes = f.read()
+                        image_part = types.Part.from_data(
+                            mime_type=self._get_mime_type(img_path),
+                            data=image_bytes
+                        )
+                        contents.append(image_part)
+                        logger.info(f"Bild hinzugefügt: {img_path}")
+                    except Exception as e:
+                        logger.error(f"Fehler beim Hinzufügen des Bildes {img_path}: {str(e)}")
+                
+                self.chat = self.model.start_chat(history=[]) 
+                response = self.chat.send_message(contents)
                 analysis_text = response.text
-            elif hasattr(response, 'candidates') and response.candidates:
-                analysis_text = response.candidates[0].content.parts[0].text
-            else:
-                analysis_text = "Keine Analyseergebnisse verfügbar."
 
-            # Entfernen von HTML-Tags am Anfang und Ende, falls vorhanden
-            analysis_text = analysis_text.strip()
-            if analysis_text.startswith("<p>") and analysis_text.endswith("</p>"):
-                # Wenn der Text bereits HTML-formatiert ist, belassen wir ihn so
-                pass
-            else:
-                # Ansonsten formatieren wir den Text als Markdown
-                # Wir ersetzen doppelte Zeilenumbrüche durch Markdown-Absätze
-                analysis_text = analysis_text.replace("\n\n", "\n\n")
+                analysis_text = analysis_text.strip()
+                if not (analysis_text.startswith("<p>") and analysis_text.endswith("</p>")):
+                    analysis_text = analysis_text.replace("\n\n", "\n\n")
+                logger.info(f"Analyse-Text erfolgreich extrahiert, Länge: {len(analysis_text)} Zeichen")
 
-            logger.info(f"Analyse-Text erfolgreich extrahiert, Länge: {len(analysis_text)} Zeichen")
+            except Exception as e:
+                logger.error(f"Fehler bei der Analyse: {str(e)}")
+                if 'prompt' not in locals(): 
+                    prompt = "Error during prompt generation for analysis." 
+                self.chat_history = [
+                    {"role": "user", "parts": [{"text": prompt}]},
+                    {"role": "model", "parts": [{"text": f"Fehler bei der Analyse: {str(e)}"}]}
+                ]
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "model": self.model_name,
+                    "analyzed_at": current_time,
+                    "chat_history": self.chat_history 
+                }
 
-            # Chatverlauf initialisieren - wir speichern nur die Anfrage,
-            # da die Analyse bereits als erste Nachricht im Chat-Interface angezeigt wird
-            self.chat_history = [
-                {"role": "user", "content": f"Analysiere diese Kleinanzeige: {data.get('title', 'Unbekannte Anzeige')}"}
-            ]
+        self.chat_history = [
+            {"role": "user", "parts": [{"text": prompt}]},
+            {"role": "model", "parts": [{"text": analysis_text}]}
+        ]
 
-            result = {
-                "success": True,
-                "analysis": analysis_text,
-                "model": self.model_name,
-                "analyzed_at": datetime.now().isoformat(),
-                "chat_history": self.chat_history
-            }
-
-            logger.info("Analyse erfolgreich abgeschlossen")
-            return result
-
-        except Exception as e:
-            logger.error(f"Fehler bei der Analyse: {str(e)}")
-            from datetime import datetime
-            return {
-                "success": False,
-                "error": str(e),
-                "model": self.model_name,
-                "analyzed_at": datetime.now().isoformat(),
-            }
+        result = {
+            "success": True,
+            "analysis": analysis_text,
+            "model": self.model_name,
+            "analyzed_at": current_time,
+            "chat_history": self.chat_history
+        }
+        logger.info(f"Analyse MOCK/ERFOLGREICH abgeschlossen. Zurückgegebenes Resultat: success={result.get('success')}, model={result.get('model')}, chat_history_len={len(result.get('chat_history', []))}")
+        return result
 
     def _get_mime_type(self, file_path: str) -> str:
-        """
-        Ermittelt den MIME-Typ einer Datei anhand ihrer Erweiterung.
-
-        Args:
-            file_path (str): Der Pfad zur Datei
-
-        Returns:
-            str: Der MIME-Typ der Datei
-        """
         extension = os.path.splitext(file_path)[1].lower()
         mime_types = {
             '.jpg': 'image/jpeg',
@@ -235,116 +188,95 @@ class GeminiAnalyzer:
         }
         return mime_types.get(extension, 'application/octet-stream')
 
-    def ask_followup_question(self, question: str, ad_id: str) -> Dict[str, Any]:
-        """
-        Stellt eine Folgefrage an das Gemini-Modell basierend auf dem bisherigen Chatverlauf.
+    def ask_followup_question(self, question: str, ad_id: str, scraped_data: Dict[str, Any]) -> Dict[str, Any]:
+        from datetime import datetime # Ensure datetime is imported
+        current_time = datetime.now().isoformat()
 
-        Args:
-            question (str): Die Folgefrage des Benutzers
-            ad_id (str): Die ID der Anzeige, auf die sich die Frage bezieht
-
-        Returns:
-            Dict[str, Any]: Das Ergebnis der Folgefrage
-        """
-        try:
-            # Frage zum Chatverlauf hinzufügen
-            self.chat_history.append({"role": "user", "content": question})
-
-            # Anfrage an Gemini senden
-            # Wir fügen die Analyse als Kontext hinzu, falls sie nicht im Chatverlauf ist
-            has_analysis_in_history = any(msg.get("role") == "assistant" for msg in self.chat_history)
-
-            if not has_analysis_in_history:
-                # Analyse-Datei lesen, um den Analysetext zu erhalten
-                try:
-                    import os
-                    import json
-                    analysis_path = os.path.join('output', f'{ad_id}_analysis.json')
-                    if os.path.exists(analysis_path):
-                        with open(analysis_path, 'r', encoding='utf-8') as f:
-                            analysis_data = json.load(f)
-                            analysis_text = analysis_data.get('analysis', '')
-
-                            # Analyse als erste Assistenten-Nachricht hinzufügen
-                            contents = [
-                                {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Du hast bereits eine Analyse erstellt. Bitte beantworte meine Fragen basierend auf dieser Analyse und deinem Wissen."},
-                                {"role": "assistant", "content": analysis_text},
-                                *self.chat_history
-                            ]
-                    else:
-                        contents = [
-                            {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Bitte beantworte meine Fragen basierend auf den Informationen, die du bereits über diese Anzeige hast."},
-                            *self.chat_history
-                        ]
-                except Exception as e:
-                    logger.error(f"Fehler beim Laden der Analyse: {str(e)}")
-                    contents = [
-                        {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Bitte beantworte meine Fragen basierend auf den Informationen, die du bereits über diese Anzeige hast."},
-                        *self.chat_history
-                    ]
-            else:
-                contents = [
-                    {"role": "user", "content": f"Ich stelle dir Fragen zu einer Kleinanzeige mit der ID {ad_id}. Bitte beantworte meine Fragen basierend auf den Informationen, die du bereits über diese Anzeige hast."},
-                    *self.chat_history
-                ]
-
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=contents
-            )
-
-            # Antwort verarbeiten
-            from datetime import datetime
-
-            # Prüfen, ob die Antwort erfolgreich war
-            if hasattr(response, 'text'):
-                answer_text = response.text
-            elif hasattr(response, 'candidates') and response.candidates:
-                answer_text = response.candidates[0].content.parts[0].text
-            else:
-                answer_text = "Keine Antwort verfügbar."
-
-            # Antwort zum Chatverlauf hinzufügen
-            self.chat_history.append({"role": "assistant", "content": answer_text})
-
-            # Ergebnis zurückgeben
-            result = {
+        if self.api_key == "DUMMY_API_KEY_FOR_TESTING":
+            logger.info(f"MOCK-FOLGEFRAGE für Ad ID {ad_id}: '{question}'")
+            answer_text = f"Mocked Antwort für '{question}'. Marke: {scraped_data.get('details', {}).get('Marke', 'N/A')}."
+            
+            self.chat_history.append({"role": "user", "parts": [{"text": question}]})
+            self.chat_history.append({"role": "model", "parts": [{"text": answer_text}]})
+            
+            logger.info(f"Mock-Antwort generiert. Chat-Länge: {len(self.chat_history)}")
+            return {
                 "success": True,
                 "question": question,
                 "answer": answer_text,
                 "model": self.model_name,
-                "asked_at": datetime.now().isoformat(),
+                "asked_at": current_time,
                 "chat_history": self.chat_history
             }
+        else:
+            # Real API call logic
+            try:
+                if not hasattr(self, 'chat') or self.chat is None: 
+                    logger.info("Chat-Objekt existiert nicht, versuche aus Verlauf wiederherzustellen.")
+                    self.chat = self.model.start_chat(history=[]) 
+                    if self.chat_history:
+                        formatted_history = []
+                        for entry in self.chat_history:
+                            parts_list = []
+                            for part_item in entry.get("parts", []):
+                                if isinstance(part_item, dict) and "text" in part_item:
+                                    parts_list.append(types.Part.from_text(part_item["text"]))
+                            if parts_list: 
+                                 formatted_history.append(types.Content(parts=parts_list, role=entry["role"]))
+                        if formatted_history: 
+                            self.chat = self.model.start_chat(history=formatted_history)
 
-            logger.info(f"Folgefrage erfolgreich beantwortet, Länge der Antwort: {len(answer_text)} Zeichen")
-            return result
+                context_prompt = f"""
+                Kontext: Titel: {scraped_data.get('title', 'N/A')}, Preis: {scraped_data.get('price', 'N/A')}, Beschreibung: {scraped_data.get('description', 'N/A')}
+                Details: {scraped_data.get('details', {})}
+                Verkäufer: {scraped_data.get('seller', {})}
+                Standort: {scraped_data.get('location', {}).get('address', 'N/A')}
+                """
+                
+                response = self.chat.send_message(f"{context_prompt}\n\nFrage: {question}")
+                answer_text = response.text
 
-        except Exception as e:
-            logger.error(f"Fehler bei der Beantwortung der Folgefrage: {str(e)}")
-            from datetime import datetime
-            return {
-                "success": False,
-                "question": question,
-                "error": str(e),
-                "model": self.model_name,
-                "asked_at": datetime.now().isoformat()
-            }
+                updated_history = []
+                for hist_entry in self.chat.history:
+                    parts_list = []
+                    for part in hist_entry.parts: 
+                        if hasattr(part, 'text'):
+                            parts_list.append({"text": part.text})
+                    updated_history.append({"role": hist_entry.role, "parts": parts_list})
+                self.chat_history = updated_history
+
+                result = {
+                    "success": True,
+                    "question": question,
+                    "answer": answer_text,
+                    "model": self.model_name,
+                    "asked_at": current_time,
+                    "chat_history": self.chat_history
+                }
+
+                logger.info(f"Folgefrage erfolgreich beantwortet, Länge der Antwort: {len(answer_text)} Zeichen. Chat-Länge: {len(self.chat_history)}")
+                return result
+
+            except Exception as e:
+                logger.error(f"Fehler bei der Beantwortung der Folgefrage: {str(e)}")
+                # Ensure self.chat_history is updated with the user's question even if there's an error
+                # so the UI can reflect the attempt.
+                # Only add the question if it's not already the last message (to avoid duplicates if send_message failed early)
+                if not self.chat_history or self.chat_history[-1].get("parts")[0].get("text") != question:
+                     self.chat_history.append({"role": "user", "parts": [{"text": question}]})
+                self.chat_history.append({"role": "model", "parts": [{"text": f"Error processing your question: {str(e)}"}]})
+                return {
+                    "success": False,
+                    "question": question,
+                    "error": str(e),
+                    "model": self.model_name,
+                    "asked_at": current_time,
+                    "chat_history": self.chat_history 
+                }
 
 
 # Hilfsfunktion zum Speichern der Analyseergebnisse
 def save_analysis_result(ad_id: str, analysis_result: Dict[str, Any], output_dir: str = "output") -> str:
-    """
-    Speichert das Analyseergebnis als JSON-Datei.
-
-    Args:
-        ad_id (str): Die ID der Anzeige
-        analysis_result (Dict[str, Any]): Das Analyseergebnis
-        output_dir (str, optional): Das Ausgabeverzeichnis. Standardmäßig "output".
-
-    Returns:
-        str: Der Pfad zur gespeicherten Datei
-    """
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{ad_id}_analysis.json"
     filepath = os.path.join(output_dir, filename)
@@ -357,42 +289,41 @@ def save_analysis_result(ad_id: str, analysis_result: Dict[str, Any], output_dir
 
 # Hilfsfunktion zum Speichern der Folgefragen und Antworten
 def save_chat_history(ad_id: str, chat_result: Dict[str, Any], output_dir: str = "output") -> str:
-    """
-    Speichert den Chatverlauf als JSON-Datei.
-
-    Args:
-        ad_id (str): Die ID der Anzeige
-        chat_result (Dict[str, Any]): Das Ergebnis der Folgefrage
-        output_dir (str, optional): Das Ausgabeverzeichnis. Standardmäßig "output".
-
-    Returns:
-        str: Der Pfad zur gespeicherten Datei
-    """
     os.makedirs(output_dir, exist_ok=True)
     filename = f"{ad_id}_chat.json"
     filepath = os.path.join(output_dir, filename)
 
-    # Prüfen, ob bereits ein Chat existiert
-    if os.path.exists(filepath):
-        with open(filepath, 'r', encoding='utf-8') as f:
-            chat_data = json.load(f)
+    # Determine the correct timestamp key based on what's available in chat_result
+    timestamp = chat_result.get('asked_at') or chat_result.get('analyzed_at')
 
-        # Neuen Chat-Eintrag hinzufügen
-        chat_data['chat_history'] = chat_result.get('chat_history', [])
-        chat_data['last_updated'] = chat_result.get('asked_at')
+    # Prepare the data to be saved
+    chat_data_to_save = {
+        'ad_id': ad_id,
+        'model': chat_result.get('model'),
+        'chat_history': chat_result.get('chat_history', []), # Use the chat_history from the result
+        'last_updated': timestamp
+    }
+
+    # If the file doesn't exist, it's the first time saving, so set 'created_at'
+    if not os.path.exists(filepath):
+        chat_data_to_save['created_at'] = timestamp
     else:
-        # Neue Chat-Datei erstellen
-        chat_data = {
-            'ad_id': ad_id,
-            'model': chat_result.get('model'),
-            'chat_history': chat_result.get('chat_history', []),
-            'created_at': chat_result.get('asked_at'),
-            'last_updated': chat_result.get('asked_at')
-        }
+        # If it exists, load existing data to preserve 'created_at'
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+            chat_data_to_save['created_at'] = existing_data.get('created_at', timestamp) # Keep original or set if missing
+        except FileNotFoundError:
+             # This can happen if save_analysis_result created the directory but not the file yet,
+             # or if another process deleted it.
+             chat_data_to_save['created_at'] = timestamp
 
-    # Datei speichern
+
+    # Write the updated chat data
     with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(chat_data, f, ensure_ascii=False, indent=2)
+        json.dump(chat_data_to_save, f, ensure_ascii=False, indent=2)
 
     logger.info(f"Chatverlauf gespeichert: {filepath}")
     return filepath
+```
+Now that `gemini_analyzer.py` is corrected, I'll restart the Flask app and proceed with the initial analysis test again.

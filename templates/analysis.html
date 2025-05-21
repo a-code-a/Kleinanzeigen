@@ -125,34 +125,39 @@
 
                 <!-- Chat-Container mit Analyse und Folgefragen -->
                 <div class="chat-container" id="chat-container">
-                    <!-- Analyse als erste Nachricht im Chat -->
-                    <div class="chat-message assistant-message">
-                        <div class="message-header">
-                            <strong>Gemini</strong>
-                        </div>
-                        <div class="message-content">
-                            {{ analysis.analysis|markdown|safe }}
-                        </div>
-                    </div>
-
-                    <!-- Weitere Chat-Nachrichten -->
+                    <!-- Chat-Nachrichten aus chat.chat_history -->
                     {% if chat and chat.chat_history %}
                         {% for message in chat.chat_history %}
-                            {% if not loop.first or not (message.role == 'assistant' and loop.first) %}
-                                <div class="chat-message {% if message.role == 'user' %}user-message{% else %}assistant-message{% endif %}">
-                                    <div class="message-header">
-                                        <strong>{% if message.role == 'user' %}Sie{% else %}Gemini{% endif %}</strong>
-                                    </div>
-                                    <div class="message-content">
-                                        {% if message.role == 'user' %}
-                                            {{ message.content }}
-                                        {% else %}
-                                            {{ message.content|markdown|safe }}
-                                        {% endif %}
-                                    </div>
+                            <div class="chat-message {% if message.role == 'user' %}user-message{% elif message.role == 'model' %}assistant-message{% else %}other-message{% endif %}">
+                                <div class="message-header">
+                                    <strong>{% if message.role == 'user' %}Sie{% elif message.role == 'model' %}Gemini{% else %}System{% endif %}</strong>
+                                    {% if message.timestamp %} <!-- Optional: if you add timestamps later -->
+                                        <small class="text-muted ml-2">{{ message.timestamp }}</small>
+                                    {% endif %}
                                 </div>
-                            {% endif %}
+                                <div class="message-content">
+                                    {# Assuming message.parts is a list and we want the first part #}
+                                    {% if message.parts and message.parts[0] %}
+                                        {% if message.role == 'model' %}
+                                            {{ message.parts[0]|markdown|safe }}
+                                        {% else %}
+                                            {{ message.parts[0] }}
+                                        {% endif %}
+                                    {% elif message.content %}
+                                        {# Fallback for older format if any, or if parts is empty #}
+                                        {% if message.role == 'model' %}
+                                            {{ message.content|markdown|safe }}
+                                        {% else %}
+                                            {{ message.content }}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">[Nachricht ohne Inhalt]</span>
+                                    {% endif %}
+                                </div>
+                            </div>
                         {% endfor %}
+                    {% else %}
+                        <p class="text-muted p-3">Noch keine Analyse oder Chat vorhanden.</p>
                     {% endif %}
                 </div>
 
