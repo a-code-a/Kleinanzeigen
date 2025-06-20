@@ -1,6 +1,6 @@
 # Kleinanzeigen Scraper
 
-A Python tool for extracting all information from a Kleinanzeigen ad, including images. Available as a command-line tool and as a web app with a user interface.
+A Python tool for extracting all information from a Kleinanzeigen ad, including images. Available as a command-line tool and as a web app with a user interface. The web app now features automatic AI-powered analysis of ads and an interactive chat to discuss the ad's details, leveraging Google's Gemini model and LlamaIndex for contextual understanding.
 
 ## Project Structure
 
@@ -8,7 +8,7 @@ This project is organized as follows:
 
 -   \`app.py\`: The main Flask web application that provides the user interface and handles web requests.
 -   \`kleinanzeigen_scraper.py\`: Contains the core logic for scraping ad data from Kleinanzeigen.de. It can also be run as a command-line tool.
--   \`gemini_analyzer.py\`: Implements the AI analysis features using Google's Gemini model to analyze scraped ad data.
+-   \`gemini_analyzer.py\`: Implements the AI analysis features using Google's Gemini model to analyze scraped ad data, and integrates LlamaIndex for chat functionality.
 -   \`templates/\`: Directory containing HTML templates used by the Flask web application.
 -   \`static/\`: Directory for static files like CSS stylesheets and JavaScript client-side scripts.
 -   \`output/\`: Default directory where scraped ad data (JSON files) and downloaded images are saved.
@@ -24,7 +24,8 @@ This project is organized as follows:
 - Storage of data in structured form (JSON)
 - Storage of images in a separate folder
 - Web-based user interface for easy operation
-- AI analysis of ads using Google's Gemini model
+- Automatic AI analysis of ads upon scraping, providing an immediate summary and evaluation using Google's Gemini model.
+- Interactive chat with the AI about the ad, using the ad's details and initial analysis as context, powered by LlamaIndex.
 
 ## Installation
 
@@ -65,7 +66,7 @@ Start the web app with:
 python app.py
 ```
 
-Then open the address `http://localhost:5000` in your browser and enter the URL of a Kleinanzeigen ad.
+Then open the address `http://localhost:5000` in your browser, enter a Kleinanzeigen ad URL, and submit. The results page will display the scraped ad details, an automatically generated AI analysis, and an interactive chat interface to ask further questions about the ad.
 
 ## Output
 
@@ -73,9 +74,11 @@ The scraper creates the following output:
 
 1. A JSON file with all text information of the ad (named after the ad ID)
 2. A subfolder "images" with all images of the ad
+3. If AI features are enabled, an additional JSON file (`<ad_id>_analysis.json`) containing the initial AI analysis.
 
 ### Example of JSON output
 
+(The existing example for the main ad data JSON remains relevant)
 ```json
 {
   "id": "123456789",
@@ -131,9 +134,9 @@ The scraper creates the following output:
 }
 ```
 
-## AI Analysis with Gemini
+## AI Analysis and Chat with Gemini & LlamaIndex
 
-The application offers an AI analysis function that uses Google's Gemini model to analyze ads and create a detailed report. The report includes:
+The application automatically performs an AI analysis using Google's Gemini model when an ad is scraped via the web interface. This initial analysis provides a quick overview, including:
 
 - Summary of the offer
 - Evaluation of the price-performance ratio
@@ -141,9 +144,11 @@ The application offers an AI analysis function that uses Google's Gemini model t
 - Abnormalities or warning signs
 - Recommendations for potential buyers
 
+Furthermore, the results page features an interactive chat. This chat functionality leverages LlamaIndex to provide context-aware responses based on the scraped ad data and the initial AI analysis.
+
 ### Setup of AI Analysis
 
-To use the AI analysis features:
+To use the AI analysis and chat features:
 
 1.  **Ensure you have a Gemini API Key.** You can obtain one from [Google AI Studio](https://aistudio.google.com/app/apikey).
 2.  **Set up your environment file:**
@@ -159,19 +164,18 @@ To use the AI analysis features:
 
 The `FLASK_SECRET_KEY` for the web application can also be set in this `.env` file. While not strictly for AI analysis, it's good practice for web app security.
 
-### Usage of AI Analysis
+### Interacting with AI Analysis and Chat
 
-1. Scrape an ad as usual
-2. Click on the "AI Analysis" button on the results page
-3. Start the analysis and wait for the result
-4. The analysis report will be displayed and can be downloaded
+1.  **Scrape an ad** using the web app's main page by entering its URL.
+2.  The **results page will automatically display** the scraped details alongside an initial AI-generated analysis of the ad.
+3.  **Use the chat interface** provided on the results page to ask follow-up questions. The AI uses the ad's content and its initial analysis to answer your questions contextually.
 
 ## Notices
 
 - Please note the terms of use of Kleinanzeigen.de
 - Use this tool responsibly and respect the privacy of sellers
 - Excessive scraping can lead to your IP address being blocked
-- The AI analysis is an assessment and not a guarantee of the quality or authenticity of an offer
+- The AI analysis and chat responses are assessments and not guarantees for the quality or authenticity of an offer.
 
 ## License
 

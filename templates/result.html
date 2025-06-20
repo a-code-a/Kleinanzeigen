@@ -228,6 +228,55 @@
                 <p class="description-text">{{ data.description }}</p>
             </div>
         </div>
+
+        <!-- Initial AI Analysis Section -->
+        <div class="card detail-card mt-4 shadow">
+            <div class="card-header bg-info text-white">
+                <h4 class="mb-0"><i class="fas fa-lightbulb"></i> Initial AI Analysis</h4>
+            </div>
+            <div class="card-body">
+                {% if initial_analysis_text %}
+                    <div class="analysis-text">{{ initial_analysis_text | markdown }}</div>
+                {% else %}
+                    <p class="text-muted">Initial AI analysis not available or not yet generated.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Chat Interface Section -->
+        <div id="chat-container" class="chat-container mt-4 card detail-card shadow" data-ad-id="{{ data.id }}">
+            <div class="card-header bg-secondary text-white">
+                 <h4 class="mb-0"><i class="fas fa-comments"></i> Chat with AI about this Ad</h4>
+            </div>
+            <div class="card-body">
+                <div id="chat-box" class="border p-3 mb-2" style="height: 300px; overflow-y: scroll; background-color: #f8f9fa;">
+                    <!-- Chat messages will appear here -->
+                    {% if initial_analysis_text %}
+                    <div class="chat-message assistant-message mb-2">
+                        <div style="font-size: 0.8em; color: #6c757d;">Assistant:</div>
+                        <div class="p-2 rounded" style="background-color: #e9ecef; display: inline-block; max-width: 85%;">
+                            {{ initial_analysis_text | markdown }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="chat-message assistant-message mb-2">
+                        <div style="font-size: 0.8em; color: #6c757d;">Assistant:</div>
+                         <div class="p-2 rounded" style="background-color: #e9ecef; display: inline-block; max-width: 85%;">
+                            Hello! How can I help you with this ad?
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="input-group">
+                    <input type="text" id="chat-input" class="form-control" placeholder="Ask a question...">
+                    <div class="input-group-append">
+                        <button id="send-chat-btn" class="btn btn-primary">
+                            <i class="fas fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Rechte Spalte: Preis, Details, Standort, Verkäufer -->

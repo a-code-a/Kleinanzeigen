@@ -98,12 +98,44 @@ def scrape():
         # Scraper initialisieren und URL scrapen
         scraper = KleinanzeigenScraper(output_dir='output')
         data = scraper.scrape(url)
+        ad_id = data['id']
+
+        # Perform initial AI analysis if Gemini is available
+        if app.config.get('GEMINI_AVAILABLE', False):
+            logger.info(f"GEMINI_AVAILABLE is True. Performing initial AI analysis for ad_id: {ad_id}")
+            try:
+                analyzer = GeminiAnalyzer(api_key=app.config['GEMINI_API_KEY'])
+
+                image_paths = []
+                if 'images' in data and data['images']:
+                    for image_info in data['images']:
+                        # Construct path relative to where images are saved by the scraper
+                        img_path = os.path.join(scraper.images_dir, image_info['filename'])
+                        if os.path.exists(img_path):
+                            image_paths.append(img_path)
+                        else:
+                            logger.warning(f"Image file not found: {img_path} for ad_id: {ad_id}")
+
+                logger.info(f"Collected {len(image_paths)} images for analysis of ad_id: {ad_id}")
+
+                # Perform analysis
+                analysis_result = analyzer.analyze(data, image_paths)
+
+                # Save analysis result
+                save_analysis_result(ad_id, analysis_result) # This function is already imported
+                logger.info(f"Initial AI analysis saved for ad_id: {ad_id}")
+
+            except Exception as e:
+                logger.error(f"Error during initial AI analysis for ad_id {ad_id}: {str(e)}")
+                # Not flashing here to avoid disrupting the redirect, error is logged.
+        else:
+            logger.info("GEMINI_AVAILABLE is False. Skipping initial AI analysis.")
 
         # Zur Ergebnisseite weiterleiten
-        ad_id = data['id']
         return redirect(url_for('result', ad_id=ad_id))
 
     except Exception as e:
+        logger.error(f"Error during scraping for URL {url}: {str(e)}")
         return render_template('index.html', error=f'Fehler beim Scrapen: {str(e)}')
 
 @app.route('/result/<ad_id>')
@@ -116,11 +148,29 @@ def result(ad_id):
             return render_template('index.html', error=f'Keine Daten für Anzeigen-ID {ad_id} gefunden.')
 
         with open(json_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+            ad_data = json.load(f)
 
-        return render_template('result.html', data=data)
+        initial_analysis_text = None
+        analysis_file_path = os.path.join(app.config['UPLOAD_FOLDER'], f'{ad_id}_analysis.json')
+
+        if os.path.exists(analysis_file_path):
+            try:
+                with open(analysis_file_path, 'r', encoding='utf-8') as f:
+                    analysis_data = json.load(f)
+                if analysis_data.get('success', False) and 'analysis' in analysis_data:
+                    initial_analysis_text = analysis_data['analysis']
+                    logger.info(f"Initial AI analysis loaded for ad_id: {ad_id}")
+                else:
+                    logger.warning(f"Analysis data for ad_id: {ad_id} found but content is not as expected or success=false.")
+            except Exception as e:
+                logger.error(f"Error loading analysis file for ad_id {ad_id}: {str(e)}")
+        else:
+            logger.info(f"No initial AI analysis file found for ad_id: {ad_id} at {analysis_file_path}")
+
+        return render_template('result.html', data=ad_data, initial_analysis_text=initial_analysis_text)
 
     except Exception as e:
+        logger.error(f"Error in result route for ad_id {ad_id}: {str(e)}")
         return render_template('index.html', error=f'Fehler beim Laden der Ergebnisse: {str(e)}')
 
 @app.route('/images/<path:filename>')
@@ -238,6 +288,83 @@ def download_analysis(ad_id):
 def download_chat(ad_id):
     """Ermöglicht den Download des Chatverlaufs"""
     return send_from_directory('output', f'{ad_id}_chat.json', as_attachment=True)
+
+
+@app.route('/chat/<ad_id>', methods=['POST'])
+def chat_handler(ad_id):
+    if not app.config.get('GEMINI_AVAILABLE', False):
+        logger.warning(f"Chat request for ad_id {ad_id} but Gemini API key not configured.")
+        return jsonify({'error': 'Gemini API key not configured. Chat is unavailable.'}), 403
+
+    data = request.get_json()
+    user_message = data.get('message') if data else None
+    if not user_message:
+        logger.warning(f"Chat request for ad_id {ad_id} with no message.")
+        return jsonify({'error': 'No message provided.'}), 400
+
+    logger.info(f"Received chat message for ad_id {ad_id}: {user_message}")
+
+    try:
+        # Load ad_data
+        ad_json_path = os.path.join(app.config['UPLOAD_FOLDER'], f'{ad_id}.json')
+        if not os.path.exists(ad_json_path):
+            logger.error(f"Ad data file not found for ad_id: {ad_id} at {ad_json_path}")
+            return jsonify({'error': 'Ad data not found.'}), 404
+        with open(ad_json_path, 'r', encoding='utf-8') as f:
+            ad_data = json.load(f)
+
+        # Load initial_analysis_text
+        initial_analysis_text = "" # Default if not found
+        analysis_json_path = os.path.join(app.config['UPLOAD_FOLDER'], f'{ad_id}_analysis.json')
+        if os.path.exists(analysis_json_path):
+            with open(analysis_json_path, 'r', encoding='utf-8') as f:
+                analysis_content = json.load(f)
+            if analysis_content.get('success', False) and 'analysis' in analysis_content:
+                initial_analysis_text = analysis_content['analysis']
+                logger.info(f"Successfully loaded initial analysis for ad_id {ad_id} for chat.")
+            else:
+                logger.warning(f"Initial analysis file for ad_id {ad_id} exists but content is not as expected or success=false.")
+        else:
+            logger.info(f"No initial analysis file found for ad_id {ad_id} for chat at {analysis_json_path}")
+
+        analyzer = GeminiAnalyzer(api_key=app.config['GEMINI_API_KEY'])
+        # Note: GeminiAnalyzer.__init__ configures LlamaIndex Settings globally.
+        # This is generally fine for single-process Flask dev server.
+
+        chat_engine = analyzer.create_chat_engine(ad_data, initial_analysis_text)
+        if not chat_engine:
+            logger.error(f"Failed to create chat engine for ad_id: {ad_id}")
+            return jsonify({'error': 'Could not initialize chat engine.'}), 500
+
+        response_data = analyzer.chat_with_ad_context(user_message, chat_engine)
+
+        # Optionally, save the chat history if response_data contains it and it's successful
+        # if response_data.get('success') and 'chat_history' in response_data:
+            # Chat history saving is currently disabled for LlamaIndex context chat.
+            # The save_chat_history function would need significant rework to handle
+            # LlamaIndex's chat history objects or a different persistence strategy.
+            # save_chat_history(ad_id, response_data)
+            # logger.info(f"Chat history updated for ad_id: {ad_id} after successful response.")
+        logger.info("Chat history persistence to _chat.json is currently not active for LlamaIndex-based chat in this mode.")
+
+        if response_data.get('success'):
+            return jsonify(response_data)
+        else:
+            logger.error(f"Error from chat_with_ad_context for ad_id {ad_id}: {response_data.get('error')}")
+            # Return the detailed error from response_data if available
+            error_detail = response_data.get('error', 'Chat processing failed.')
+            return jsonify({'error': error_detail, 'details': response_data}), 500
+
+    except FileNotFoundError: # This might be redundant if individual file checks are done above
+        logger.error(f"Data files not found for ad_id: {ad_id} during chat handling.")
+        return jsonify({'error': 'Ad data or analysis data not found.'}), 404
+    except json.JSONDecodeError as je:
+        logger.error(f"JSON decode error for ad_id {ad_id}: {str(je)}")
+        return jsonify({'error': 'Error decoding data files.'}), 500
+    except Exception as e:
+        logger.error(f"Error in chat endpoint for ad_id {ad_id}: {str(e)}", exc_info=True)
+        return jsonify({'error': 'An unexpected error occurred during chat processing.'}), 500
+
 
 @app.route('/api/scrape', methods=['POST'])
 def api_scrape():

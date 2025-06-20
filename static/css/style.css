@@ -117,3 +117,56 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
+
+/* Chat message styling */
+.chat-message {
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    border-radius: 15px;
+    max-width: 75%;
+    word-wrap: break-word; /* Ensure long words don't overflow */
+}
+
+.user-message {
+    background-color: #007bff; /* Bootstrap primary blue */
+    color: white;
+    text-align: left; /* Align user messages to the left for a common chat look */
+    margin-left: auto; /* Push to the right */
+    border-bottom-right-radius: 0; /* Bubble tail effect */
+}
+
+.assistant-message {
+    background-color: #e9ecef; /* Bootstrap light grey */
+    color: #212529; /* Bootstrap dark grey text */
+    text-align: left;
+    margin-right: auto; /* Push to the left */
+    border-bottom-left-radius: 0; /* Bubble tail effect */
+}
+
+.error-message {
+    background-color: #ffebee;
+    color: #dc3545; /* Bootstrap danger red */
+    text-align: left;
+    font-style: italic;
+    padding: 6px 10px;
+    border-radius: 5px;
+}
+
+.loading-message {
+    font-style: italic;
+    color: #6c757d; /* Bootstrap muted text color */
+    padding: 8px 12px;
+}
+
+/* Styling for sender labels (optional, if you add them in JS) */
+.chat-message .sender-label {
+    font-size: 0.8em;
+    color: #6c757d; /* Muted text */
+    display: block;
+    margin-bottom: 2px;
+}
+
+/* Ensure chat box content doesn't get hidden by input */
+#chat-box {
+    margin-bottom: 10px;
+}
