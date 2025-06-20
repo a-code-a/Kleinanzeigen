@@ -1,61 +1,80 @@
 # Kleinanzeigen Scraper
 
-Ein Python-Tool zum Extrahieren aller Informationen von einer Kleinanzeigen-Anzeige, inklusive Bilder. Verfügbar als Kommandozeilen-Tool und als Webapp mit Benutzeroberfläche.
+A Python tool for extracting all information from a Kleinanzeigen ad, including images. Available as a command-line tool and as a web app with a user interface.
 
-## Funktionen
+## Project Structure
 
-- Extraktion aller Textinformationen (Titel, Preis, Beschreibung, Details, Standort, etc.)
-- Download aller Bilder der Anzeige
-- Extraktion detaillierter Verkäuferinformationen durch Besuch des Verkäuferprofils
-- Speicherung der Daten in strukturierter Form (JSON)
-- Speicherung der Bilder in einem separaten Ordner
-- Webbasierte Benutzeroberfläche für einfache Bedienung
-- KI-Analyse der Anzeigen mit dem Gemini-Modell von Google
+This project is organized as follows:
+
+-   \`app.py\`: The main Flask web application that provides the user interface and handles web requests.
+-   \`kleinanzeigen_scraper.py\`: Contains the core logic for scraping ad data from Kleinanzeigen.de. It can also be run as a command-line tool.
+-   \`gemini_analyzer.py\`: Implements the AI analysis features using Google's Gemini model to analyze scraped ad data.
+-   \`templates/\`: Directory containing HTML templates used by the Flask web application.
+-   \`static/\`: Directory for static files like CSS stylesheets and JavaScript client-side scripts.
+-   \`output/\`: Default directory where scraped ad data (JSON files) and downloaded images are saved.
+-   \`requirements.txt\`: Lists all Python dependencies required for this project.
+-   \`.env.example\`: An example file showing the environment variables that can be configured, primarily for the `GEMINI_API_KEY`.
+-   \`README.md\`: This file, providing information about the project.
+
+## Features
+
+- Extraction of all text information (title, price, description, details, location, etc.)
+- Download of all images from the ad
+- Extraction of detailed seller information by visiting the seller's profile
+- Storage of data in structured form (JSON)
+- Storage of images in a separate folder
+- Web-based user interface for easy operation
+- AI analysis of ads using Google's Gemini model
 
 ## Installation
 
-1. Stellen Sie sicher, dass Python 3.6 oder höher installiert ist
-2. Klonen Sie dieses Repository
-3. Installieren Sie die erforderlichen Abhängigkeiten:
+1. Ensure that Python 3.6 or higher is installed
+2. Clone this repository
+3. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   3. Create a `.env` file for your environment variables. You can copy the example file:
+      ```bash
+      cp .env.example .env
+      ```
+      Then, edit the `.env` file to add your `GEMINI_API_KEY` if you plan to use the AI analysis features. You can also set a custom `FLASK_SECRET_KEY` for the web application.
+4. The application will attempt to create an `output/` directory for scraped data and images if it doesn't exist. You can also create it manually.
 
-```bash
-pip install -r requirements.txt
-```
+## Usage
 
-## Verwendung
+### Command-line Tool
 
-### Kommandozeilen-Tool
-
-#### Einfache Verwendung
+#### Simple Usage
 
 ```bash
 python kleinanzeigen_scraper.py https://www.kleinanzeigen.de/s-anzeige/beispiel-anzeige/123456789-123-456
 ```
 
-#### Mit benutzerdefiniertem Ausgabeverzeichnis
+#### With custom output directory
 
 ```bash
-python kleinanzeigen_scraper.py https://www.kleinanzeigen.de/s-anzeige/beispiel-anzeige/123456789-123-456 --output meine_anzeigen
+python kleinanzeigen_scraper.py https://www.kleinanzeigen.de/s-anzeige/beispiel-anzeige/123456789-123-456 --output my_ads
 ```
 
-### Webapp
+### Web app
 
-Starten Sie die Webapp mit:
+Start the web app with:
 
 ```bash
 python app.py
 ```
 
-Öffnen Sie dann in Ihrem Browser die Adresse `http://localhost:5000` und geben Sie die URL einer Kleinanzeigen-Anzeige ein.
+Then open the address `http://localhost:5000` in your browser and enter the URL of a Kleinanzeigen ad.
 
-## Ausgabe
+## Output
 
-Der Scraper erstellt folgende Ausgabe:
+The scraper creates the following output:
 
-1. Ein JSON-File mit allen Textinformationen der Anzeige (benannt nach der Anzeigen-ID)
-2. Einen Unterordner "images" mit allen Bildern der Anzeige
+1. A JSON file with all text information of the ad (named after the ad ID)
+2. A subfolder "images" with all images of the ad
 
-### Beispiel für die JSON-Ausgabe
+### Example of JSON output
 
 ```json
 {
@@ -80,12 +99,17 @@ Der Scraper erstellt folgende Ausgabe:
     "member_since": "April 2020",
     "user_id": "12345678",
     "profile_url": "https://www.kleinanzeigen.de/s-bestandsliste.html?userId=12345678",
+    "active_ads_count": 12,
+    "badges": ["TOP Zufriedenheit", "Sehr freundlich"],
     "profile": {
       "user_type": "Privater Nutzer",
       "member_since": "April 2020",
       "response_time": "Antwortet in der Regel innerhalb von 24 Stunden",
       "followers_count": 5,
-      "active_ads_count": 12
+      "active_ads_count": 12,
+      "rating_percentage": 95,
+      "reviews_count": 25,
+      "badges": ["Zuverlässig"]
     }
   },
   "images": [
@@ -107,39 +131,48 @@ Der Scraper erstellt folgende Ausgabe:
 }
 ```
 
-## KI-Analyse mit Gemini
+## AI Analysis with Gemini
 
-Die Anwendung bietet eine KI-Analyse-Funktion, die das Gemini-Modell von Google verwendet, um Anzeigen zu analysieren und einen detaillierten Bericht zu erstellen. Der Bericht enthält:
+The application offers an AI analysis function that uses Google's Gemini model to analyze ads and create a detailed report. The report includes:
 
-- Zusammenfassung des Angebots
-- Bewertung des Preis-Leistungs-Verhältnisses
-- Einschätzung der Seriosität des Verkäufers
-- Auffälligkeiten oder Warnzeichen
-- Empfehlungen für potenzielle Käufer
+- Summary of the offer
+- Evaluation of the price-performance ratio
+- Assessment of the seller's seriousness
+- Abnormalities or warning signs
+- Recommendations for potential buyers
 
-### Einrichtung der KI-Analyse
+### Setup of AI Analysis
 
-1. Erstellen Sie eine `.env`-Datei im Hauptverzeichnis des Projekts (oder kopieren Sie `.env.example` zu `.env`)
-2. Fügen Sie Ihren Gemini API-Schlüssel hinzu:
-   ```
-   GEMINI_API_KEY=Ihr_API_Schlüssel_hier
-   ```
-3. Sie können einen Gemini API-Schlüssel unter [https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) erhalten
+To use the AI analysis features:
 
-### Verwendung der KI-Analyse
+1.  **Ensure you have a Gemini API Key.** You can obtain one from [Google AI Studio](https://aistudio.google.com/app/apikey).
+2.  **Set up your environment file:**
+    *   If you haven't already, copy the `.env.example` file to a new file named `.env` in the project's root directory:
+        ```bash
+        cp .env.example .env
+        ```
+    *   Open the `.env` file and add your Gemini API key:
+        ```
+        GEMINI_API_KEY=your_api_key_here
+        ```
+3.  **Verify API Key Access:** The application checks for the `GEMINI_API_KEY` on startup. If it's not set, AI features will be disabled (a warning will be logged, and the UI may indicate this).
 
-1. Scrapen Sie eine Anzeige wie gewohnt
-2. Klicken Sie auf der Ergebnisseite auf den "KI-Analyse"-Button
-3. Starten Sie die Analyse und warten Sie auf das Ergebnis
-4. Der Analysebericht wird angezeigt und kann heruntergeladen werden
+The `FLASK_SECRET_KEY` for the web application can also be set in this `.env` file. While not strictly for AI analysis, it's good practice for web app security.
 
-## Hinweise
+### Usage of AI Analysis
 
-- Bitte beachten Sie die Nutzungsbedingungen von Kleinanzeigen.de
-- Verwenden Sie dieses Tool verantwortungsvoll und respektieren Sie die Privatsphäre der Verkäufer
-- Übermäßiges Scraping kann zu einer Blockierung Ihrer IP-Adresse führen
-- Die KI-Analyse ist eine Einschätzung und keine Garantie für die Qualität oder Echtheit eines Angebots
+1. Scrape an ad as usual
+2. Click on the "AI Analysis" button on the results page
+3. Start the analysis and wait for the result
+4. The analysis report will be displayed and can be downloaded
 
-## Lizenz
+## Notices
+
+- Please note the terms of use of Kleinanzeigen.de
+- Use this tool responsibly and respect the privacy of sellers
+- Excessive scraping can lead to your IP address being blocked
+- The AI analysis is an assessment and not a guarantee of the quality or authenticity of an offer
+
+## License
 
 MIT
